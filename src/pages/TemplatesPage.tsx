@@ -11,7 +11,7 @@ import {
   PageHeader,
   notify,
 } from '../components/ui'
-import { DEFAULT_FIELD_POSITIONS } from '../utils'
+import { DEFAULT_FIELD_POSITIONS, FALLBACK_CERTIFICATE_BG } from '../utils'
 
 const FIELD_KEYS = [
   'candidate_name',
@@ -344,7 +344,8 @@ export default function TemplatesPage() {
                     <AuthImage
                       path={t.background_image_path}
                       alt={t.template_name}
-                      className="mt-3 h-20 w-auto rounded border border-slate-200 object-cover"
+                      fallbackSrc={FALLBACK_CERTIFICATE_BG}
+                      className="mt-3 h-28 w-auto max-w-full rounded border border-slate-200 object-cover"
                     />
                   </li>
                 ))}

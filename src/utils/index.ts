@@ -6,6 +6,9 @@ export const CERTIFICATE_PAGE = {
   widthMm: 210,
 }
 
+/** Public fallback certificate artwork (no auth required) */
+export const FALLBACK_CERTIFICATE_BG = '/certificate-bg.png'
+
 export const PAPER_SIZES = {
   a4: {
     key: 'a4',

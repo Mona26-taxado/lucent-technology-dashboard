@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Certificate, CertificateTemplate, FieldPositions } from '../types'
+import { templatesApi } from '../api'
 import AuthImage from './AuthImage'
-import { CERTIFICATE_PAGE, DEFAULT_FIELD_POSITIONS, formatDate } from '../utils'
+import { CERTIFICATE_PAGE, DEFAULT_FIELD_POSITIONS, formatDate, FALLBACK_CERTIFICATE_BG } from '../utils'
 import { companyLogoPublicUrl } from '../utils/companyLogos'
 
 interface PreviewData {
@@ -17,6 +18,7 @@ interface PreviewData {
   certificate_description?: string
   logo_path?: string | null
   signature_path?: string | null
+  template_id?: number | null
 }
 
 interface CertificatePreviewProps {
@@ -37,7 +39,6 @@ function FieldText({
   nowrap?: boolean
 }) {
   if (!value || !style || (style.y ?? 0) < 0) return null
-  // Scale pt against certificate page width so preview matches print size
   const pt = style.font_size ?? 14
   const fontSizeCqw = (pt * 0.352778 * 100) / CERTIFICATE_PAGE.widthMm
   return (
@@ -70,20 +71,55 @@ export default function CertificatePreview({
   className = '',
 }: CertificatePreviewProps) {
   const [zoom, setZoom] = useState(1)
+  const [resolvedTemplate, setResolvedTemplate] = useState<CertificateTemplate | null>(template ?? null)
+  const [bgFailed, setBgFailed] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setResolvedTemplate(template ?? null)
+  }, [template])
+
+  // If parent didn't pass a template (or it has no background), load default from API
+  useEffect(() => {
+    if (template?.background_image_path) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const templateId = (data as PreviewData).template_id
+        if (templateId) {
+          const t = await templatesApi.get(templateId)
+          if (!cancelled) setResolvedTemplate(t)
+          return
+        }
+        const list = await templatesApi.list(true)
+        const t = list.find((x) => x.is_default) || list[0] || null
+        if (!cancelled) setResolvedTemplate(t)
+      } catch {
+        if (!cancelled) setResolvedTemplate(null)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [template?.background_image_path, template?.id, (data as PreviewData).template_id])
 
   const positions = useMemo(() => {
     const base = { ...DEFAULT_FIELD_POSITIONS } as FieldPositions
-    const fromTemplate = template?.field_positions_json || fieldPositions || {}
+    const fromTemplate = resolvedTemplate?.field_positions_json || fieldPositions || {}
     for (const [key, val] of Object.entries(fromTemplate)) {
       base[key] = { ...(base[key] || {}), ...val }
     }
     return base
-  }, [template, fieldPositions])
+  }, [resolvedTemplate, fieldPositions])
 
-  const backgroundPath = template?.background_image_path
+  const backgroundPath = resolvedTemplate?.background_image_path
   const dateText = data.training_date ? formatDate(data.training_date) : ''
   const publicLogo = companyLogoPublicUrl(data.logo_path)
+
+  useEffect(() => {
+    setBgFailed(false)
+  }, [backgroundPath])
 
   const enterFullscreen = () => {
     const el = containerRef.current
@@ -139,16 +175,20 @@ export default function CertificatePreview({
               containerType: 'inline-size',
             }}
           >
-            {backgroundPath ? (
+            {backgroundPath && !bgFailed ? (
               <AuthImage
                 path={backgroundPath}
                 alt="Certificate background"
                 className="absolute inset-0 h-full w-full object-fill"
+                fallbackSrc={FALLBACK_CERTIFICATE_BG}
+                onError={() => setBgFailed(true)}
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-50 text-sm text-slate-400">
-                No template background
-              </div>
+              <img
+                src={FALLBACK_CERTIFICATE_BG}
+                alt="Certificate background"
+                className="absolute inset-0 h-full w-full object-fill"
+              />
             )}
 
             {data.logo_path && positions.logo && (positions.logo.y ?? 0) >= 0 && (

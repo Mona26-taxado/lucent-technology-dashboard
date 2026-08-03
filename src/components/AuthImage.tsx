@@ -6,10 +6,20 @@ interface AuthImageProps {
   alt: string
   className?: string
   style?: CSSProperties
+  onError?: () => void
+  /** Shown when JWT file load fails (e.g. missing upload on server) */
+  fallbackSrc?: string
 }
 
 /** Loads protected /api/files/* assets with the JWT and renders via blob URL. */
-export default function AuthImage({ path, alt, className, style }: AuthImageProps) {
+export default function AuthImage({
+  path,
+  alt,
+  className,
+  style,
+  onError,
+  fallbackSrc,
+}: AuthImageProps) {
   const [src, setSrc] = useState<string | undefined>()
   const [failed, setFailed] = useState(false)
 
@@ -20,10 +30,16 @@ export default function AuthImage({ path, alt, className, style }: AuthImageProp
     const load = async () => {
       setFailed(false)
       if (!path) {
-        setSrc(undefined)
+        setSrc(fallbackSrc)
         return
       }
-      if (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) {
+      // Public absolute path or remote/data URL
+      if (
+        path.startsWith('http') ||
+        path.startsWith('data:') ||
+        path.startsWith('blob:') ||
+        (path.startsWith('/') && !path.startsWith('//uploads'))
+      ) {
         setSrc(path)
         return
       }
@@ -31,12 +47,16 @@ export default function AuthImage({ path, alt, className, style }: AuthImageProp
       try {
         const clean = path.replace(/^\//, '')
         const response = await api.get(`/files/${clean}`, { responseType: 'blob' })
+        if (response.data?.type?.includes('application/json')) {
+          throw new Error('File not found')
+        }
         objectUrl = URL.createObjectURL(response.data)
         if (!cancelled) setSrc(objectUrl)
       } catch {
         if (!cancelled) {
-          setSrc(undefined)
           setFailed(true)
+          setSrc(fallbackSrc)
+          onError?.()
         }
       }
     }
@@ -47,10 +67,11 @@ export default function AuthImage({ path, alt, className, style }: AuthImageProp
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [path])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, fallbackSrc])
 
   if (!src) {
-    if (!path && !failed) return null
+    if (!path && !failed && !fallbackSrc) return null
     return (
       <div
         className={className}
@@ -69,5 +90,21 @@ export default function AuthImage({ path, alt, className, style }: AuthImageProp
     )
   }
 
-  return <img src={src} alt={alt} className={className} style={style} />
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      style={style}
+      onError={() => {
+        if (fallbackSrc && src !== fallbackSrc) {
+          setSrc(fallbackSrc)
+          return
+        }
+        setFailed(true)
+        setSrc(undefined)
+        onError?.()
+      }}
+    />
+  )
 }
