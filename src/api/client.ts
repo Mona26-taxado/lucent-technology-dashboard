@@ -1,6 +1,27 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+function resolveApiUrl(): string {
+  const envUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
+  const host = typeof window !== 'undefined' ? window.location.hostname : ''
+  const isLocalHost = host === 'localhost' || host === '127.0.0.1'
+
+  // Built with local API URL but opened on live domain → use same-origin /api
+  if (envUrl && (envUrl.includes('127.0.0.1') || envUrl.includes('localhost'))) {
+    if (typeof window !== 'undefined' && !isLocalHost) {
+      return `${window.location.origin}/api`
+    }
+  }
+
+  if (envUrl) return envUrl.replace(/\/$/, '')
+
+  if (typeof window !== 'undefined' && !isLocalHost) {
+    return `${window.location.origin}/api`
+  }
+
+  return 'http://127.0.0.1:8000/api'
+}
+
+export const API_URL = resolveApiUrl()
 
 const api = axios.create({
   baseURL: API_URL,
@@ -30,6 +51,9 @@ api.interceptors.response.use(
 
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong'): string {
   if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return 'Network Error — API server unreachable. Check backend / CORS / API URL.'
+    }
     const detail = error.response?.data?.detail
     if (typeof detail === 'string') return detail
     if (Array.isArray(detail)) {
