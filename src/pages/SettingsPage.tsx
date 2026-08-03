@@ -106,19 +106,45 @@ export default function SettingsPage() {
               ))}
             </select>
           </Field>
-          <Field label="PDF / Print Paper Size">
-            <select
-              className="field"
-              value={settings.paper_size || 'a4'}
-              onChange={(e) => update('paper_size', e.target.value)}
-            >
-              <option value="a4">A4 (210 × 297 mm)</option>
-              <option value="8.5x12">8.5 × 12 inches</option>
-            </select>
-          </Field>
-          <p className="text-xs text-slate-500">
-            Selected once and applied to all certificates. PDFs are generated at this size — no need to change paper size in the browser print dialog.
-          </p>
+          <div className="rounded-xl border-2 border-[#0b2a5b]/20 bg-[#0b2a5b]/[0.03] p-4 space-y-3">
+            <div>
+              <h3 className="font-bold text-[#0b2a5b]">PDF / Print Paper Size</h3>
+              <p className="mt-1 text-xs text-slate-600">
+                Choose once — <strong>all certificates</strong> will use this size for PDFs.
+                You do not need to change size on each entry.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  { key: 'a4', title: 'A4', subtitle: '210 × 297 mm', hint: 'Standard office printer' },
+                  { key: '8.5x12', title: '8.5 × 12 in', subtitle: '215.9 × 304.8 mm', hint: 'US letter-tall stock' },
+                ] as const
+              ).map((opt) => {
+                const selected = (settings.paper_size || 'a4') === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => update('paper_size', opt.key)}
+                    className={`rounded-xl border-2 p-4 text-left transition ${
+                      selected
+                        ? 'border-[#0b2a5b] bg-[#0b2a5b] text-white shadow-md'
+                        : 'border-slate-200 bg-white text-slate-800 hover:border-[#0b2a5b]/40'
+                    }`}
+                  >
+                    <p className="text-lg font-extrabold">{opt.title}</p>
+                    <p className={`mt-0.5 text-sm ${selected ? 'text-blue-100' : 'text-slate-500'}`}>{opt.subtitle}</p>
+                    <p className={`mt-2 text-[11px] ${selected ? 'text-blue-100' : 'text-slate-400'}`}>{opt.hint}</p>
+                    {selected && <p className="mt-2 text-xs font-bold uppercase tracking-wide text-emerald-200">Selected for all PDFs</p>}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs text-slate-500">
+              After you save, this size is used for every Download / Print PDF. You do not need to change paper size in the browser print dialog before sharing.
+            </p>
+          </div>
           <Field label="PDF Storage Directory">
             <input className="field" value={settings.pdf_storage_directory} onChange={(e) => update('pdf_storage_directory', e.target.value)} />
           </Field>

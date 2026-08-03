@@ -148,3 +148,92 @@ export function ConfirmDialog({
     </div>
   )
 }
+
+export function Pagination({
+  page,
+  pages,
+  total,
+  pageSize = 20,
+  onChange,
+  className = '',
+}: {
+  page: number
+  pages: number
+  total?: number
+  pageSize?: number
+  onChange: (page: number) => void
+  className?: string
+}) {
+  const safePages = Math.max(1, pages || 1)
+  const safePage = Math.min(Math.max(1, page), safePages)
+  const from = total && total > 0 ? (safePage - 1) * pageSize + 1 : 0
+  const to = total ? Math.min(safePage * pageSize, total) : 0
+
+  const pageNumbers = (() => {
+    const maxButtons = 5
+    if (safePages <= maxButtons) {
+      return Array.from({ length: safePages }, (_, i) => i + 1)
+    }
+    let start = Math.max(1, safePage - 2)
+    let end = start + maxButtons - 1
+    if (end > safePages) {
+      end = safePages
+      start = Math.max(1, end - maxButtons + 1)
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+  })()
+
+  if (safePages <= 1 && (total === undefined || total <= pageSize)) {
+    return total !== undefined ? (
+      <div className={`flex items-center justify-between border-t border-slate-100 px-4 py-3 ${className}`}>
+        <p className="text-sm text-slate-500">
+          {total === 0 ? 'No records' : `Showing ${total} record${total === 1 ? '' : 's'}`}
+        </p>
+      </div>
+    ) : null
+  }
+
+  return (
+    <div
+      className={`flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${className}`}
+    >
+      <p className="text-sm text-slate-500">
+        {total !== undefined
+          ? `Showing ${from}–${to} of ${total}`
+          : `Page ${safePage} of ${safePages}`}
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          disabled={safePage <= 1}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => onChange(safePage - 1)}
+        >
+          Previous
+        </button>
+        {pageNumbers.map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={`min-w-9 rounded-lg border px-2.5 py-1.5 text-sm font-semibold ${
+              n === safePage
+                ? 'border-[#0b2a5b] bg-[#0b2a5b] text-white'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+            onClick={() => onChange(n)}
+          >
+            {n}
+          </button>
+        ))}
+        <button
+          type="button"
+          disabled={safePage >= safePages}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => onChange(safePage + 1)}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  )
+}

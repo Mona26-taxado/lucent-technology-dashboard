@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { certificatesApi } from '../api'
 import { getErrorMessage } from '../api/client'
 import type { Certificate } from '../types'
-import { EmptyState, LoadingSpinner, PageHeader, StatusBadge, notify } from '../components/ui'
+import { EmptyState, LoadingSpinner, PageHeader, Pagination, StatusBadge, notify } from '../components/ui'
 import { formatDate } from '../utils'
 
 export default function SearchPage() {
@@ -23,6 +23,8 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [pages, setPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const PAGE_SIZE = 20
 
   const set = (key: keyof typeof filters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -31,7 +33,7 @@ export default function SearchPage() {
     setLoading(true)
     setSearched(true)
     try {
-      const params: Record<string, string | number> = { page: p, page_size: 20 }
+      const params: Record<string, string | number> = { page: p, page_size: PAGE_SIZE }
       Object.entries(filters).forEach(([k, v]) => {
         if (v) params[k] = v
       })
@@ -39,6 +41,7 @@ export default function SearchPage() {
       setItems(data.items)
       setPage(data.page)
       setPages(data.pages)
+      setTotal(data.total)
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -161,13 +164,13 @@ export default function SearchPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-sm text-slate-500">Page {page} of {pages || 1}</p>
-            <div className="flex gap-2">
-              <button type="button" disabled={page <= 1} className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40" onClick={() => void search(page - 1)}>Previous</button>
-              <button type="button" disabled={page >= pages} className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40" onClick={() => void search(page + 1)}>Next</button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            pages={pages}
+            total={total}
+            pageSize={PAGE_SIZE}
+            onChange={(p) => void search(p)}
+          />
         </div>
       )}
     </div>

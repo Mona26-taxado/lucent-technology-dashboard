@@ -41,14 +41,17 @@ function FieldText({
   if (!value || !style || (style.y ?? 0) < 0) return null
   const pt = style.font_size ?? 14
   const fontSizeCqw = (pt * 0.352778 * 100) / CERTIFICATE_PAGE.widthMm
+  const alignLeft = style.text_align === 'left'
   return (
     <div
-      className={`absolute -translate-x-1/2 -translate-y-1/2 leading-[1.375] ${nowrap ? 'whitespace-nowrap' : 'break-words'}`}
+      className={`absolute leading-[1.375] ${nowrap ? 'whitespace-nowrap' : 'break-words'} ${
+        alignLeft ? '-translate-y-1/2' : '-translate-x-1/2 -translate-y-1/2'
+      }`}
       style={{
         left: `${style.x}%`,
         top: `${style.y}%`,
-        width: nowrap ? 'auto' : `${style.width}%`,
-        maxWidth: nowrap ? `${style.width}%` : undefined,
+        width: nowrap || alignLeft ? 'auto' : `${style.width}%`,
+        maxWidth: nowrap || alignLeft ? `${style.width}%` : undefined,
         fontSize: `${fontSizeCqw}cqw`,
         fontFamily: style.font_family,
         fontWeight: style.font_weight as CSSProperties['fontWeight'],
@@ -109,6 +112,10 @@ export default function CertificatePreview({
     const fromTemplate = resolvedTemplate?.field_positions_json || fieldPositions || {}
     for (const [key, val] of Object.entries(fromTemplate)) {
       base[key] = { ...(base[key] || {}), ...val }
+    }
+    // Keep these identical to PDF print defaults (view === download)
+    for (const key of ['training_date', 'certificate_number', 'address', 'driving_licence_number'] as const) {
+      base[key] = { ...DEFAULT_FIELD_POSITIONS[key] }
     }
     return base
   }, [resolvedTemplate, fieldPositions])

@@ -9,6 +9,7 @@ import {
   ConfirmDialog,
   EmptyState,
   LoadingSpinner,
+  Pagination,
   StatusBadge,
   notify,
 } from '../components/ui'
@@ -43,6 +44,11 @@ export default function DashboardPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [searchName, setSearchName] = useState('')
   const [searchDl, setSearchDl] = useState('')
+  const [listMode, setListMode] = useState<'recent' | 'search'>('recent')
+  const [listPage, setListPage] = useState(1)
+  const [listPages, setListPages] = useState(1)
+  const [listTotal, setListTotal] = useState(0)
+  const LIST_PAGE_SIZE = 10
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === form.template_id) || templates.find((t) => t.is_default) || templates[0],
@@ -56,11 +62,15 @@ export default function DashboardPage() {
         templatesApi.list(true),
         certificatesApi.nextNumber(),
         settingsApi.get(),
-        dashboardApi.recent(10),
+        dashboardApi.recent(3),
       ])
       setTemplates(tpls)
       setSettings(sett)
       setRecent(rec)
+      setListMode('recent')
+      setListPage(1)
+      setListPages(1)
+      setListTotal(rec.length)
       setForm((prev) => ({
         ...prev,
         certificate_number: next.automatic_numbering ? next.certificate_number : prev.certificate_number,
@@ -149,8 +159,12 @@ export default function DashboardPage() {
         setSavedId(cert.id)
         setForm((prev) => ({ ...prev, certificate_number: cert.certificate_number }))
       }
-      const rec = await dashboardApi.recent(10)
+      const rec = await dashboardApi.recent(3)
       setRecent(rec)
+      setListMode('recent')
+      setListPage(1)
+      setListPages(1)
+      setListTotal(rec.length)
       return cert
     } catch (error) {
       notify(getErrorMessage(error), 'error')
@@ -168,7 +182,7 @@ export default function DashboardPage() {
       await certificatesApi.generatePdf(cert.id)
       notify('Certificate generated', 'success')
       setShowPreview(true)
-      setRecent(await dashboardApi.recent(10))
+      await loadRecentList()
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -212,23 +226,40 @@ export default function DashboardPage() {
     }
   }
 
-  const onSearch = async (e: FormEvent) => {
-    e.preventDefault()
+  const loadRecentList = async () => {
+    const rec = await dashboardApi.recent(3)
+    setRecent(rec)
+    setListMode('recent')
+    setListPage(1)
+    setListPages(1)
+    setListTotal(rec.length)
+  }
+
+  const runSearch = async (p = 1) => {
     setBusy(true)
     try {
       const data = await certificatesApi.search({
         candidate_name: searchName || undefined,
         driving_licence_number: searchDl || undefined,
-        page: 1,
-        page_size: 20,
+        page: p,
+        page_size: LIST_PAGE_SIZE,
       })
       setRecent(data.items)
+      setListMode('search')
+      setListPage(data.page)
+      setListPages(data.pages)
+      setListTotal(data.total)
       if (data.items.length === 0) notify('No certificates found', 'info')
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
       setBusy(false)
     }
+  }
+
+  const onSearch = async (e: FormEvent) => {
+    e.preventDefault()
+    await runSearch(1)
   }
 
   const handleDelete = async () => {
@@ -238,7 +269,7 @@ export default function DashboardPage() {
       await certificatesApi.remove(deleteId)
       notify('Certificate deleted', 'success')
       setDeleteId(null)
-      setRecent(await dashboardApi.recent(10))
+      await loadRecentList()
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -468,7 +499,7 @@ export default function DashboardPage() {
             onClick={() => {
               setSearchName('')
               setSearchDl('')
-              void dashboardApi.recent(10).then(setRecent)
+              void loadRecentList()
             }}
           >
             Clear
@@ -476,70 +507,96 @@ export default function DashboardPage() {
         </form>
       </section>
 
-      {/* Recent Certificates */}
+      {/* Recent Certificates — latest 3 only (search results are paginated) */}
       <section className="lt-section">
-        <div className="lt-section-head bg-[#0b2a5b]">Recent Certificates</div>
+        <div className="lt-section-head bg-[#0b2a5b]">
+          {listMode === 'search' ? 'Search Results' : 'Recent Certificates'}
+        </div>
         {recent.length === 0 ? (
           <div className="p-4">
-            <EmptyState title="No certificates yet" description="Generate or save a certificate to see it here." />
+            <EmptyState
+              title={listMode === 'search' ? 'No matches found' : 'No certificates yet'}
+              description={
+                listMode === 'search'
+                  ? 'Try a different name or DL number.'
+                  : 'Generate or save a certificate to see it here.'
+              }
+            />
           </div>
         ) : (
-          <div className="lt-table-wrap">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[#123a75] text-xs uppercase tracking-wide text-white">
-                <tr>
-                  <th className="px-3 py-2.5 font-semibold">S.No</th>
-                  <th className="px-3 py-2.5 font-semibold">Certificate No.</th>
-                  <th className="px-3 py-2.5 font-semibold">Candidate Name</th>
-                  <th className="px-3 py-2.5 font-semibold">DL Number</th>
-                  <th className="px-3 py-2.5 font-semibold">Block Type</th>
-                  <th className="px-3 py-2.5 font-semibold">Location</th>
-                  <th className="px-3 py-2.5 font-semibold">Date</th>
-                  <th className="px-3 py-2.5 font-semibold">Status</th>
-                  <th className="px-3 py-2.5 font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((cert, idx) => (
-                  <tr key={cert.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="px-3 py-2.5 text-slate-500">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-semibold text-slate-800">{cert.certificate_number}</td>
-                    <td className="px-3 py-2.5">{cert.candidate_name}</td>
-                    <td className="px-3 py-2.5">{cert.driving_licence_number || '—'}</td>
-                    <td className="px-3 py-2.5">{cert.block_type || '—'}</td>
-                    <td className="max-w-[160px] truncate px-3 py-2.5">{cert.address}</td>
-                    <td className="px-3 py-2.5">{formatDate(cert.training_date)}</td>
-                    <td className="px-3 py-2.5"><StatusBadge status={cert.print_status} /></td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex min-w-[168px] flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          className="rounded-md bg-[#1d4ed8] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:brightness-110"
-                          onClick={() => navigate(`/certificates/${cert.id}`)}
-                        >
-                          View
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md bg-[#ea580c] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:brightness-110"
-                          onClick={() => navigate(`/certificates/${cert.id}/print`)}
-                        >
-                          Print
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md bg-[#dc2626] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:brightness-110"
-                          onClick={() => setDeleteId(cert.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="lt-table-wrap">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#123a75] text-xs uppercase tracking-wide text-white">
+                  <tr>
+                    <th className="px-3 py-2.5 font-semibold">S.No</th>
+                    <th className="px-3 py-2.5 font-semibold">Certificate No.</th>
+                    <th className="px-3 py-2.5 font-semibold">Candidate Name</th>
+                    <th className="px-3 py-2.5 font-semibold">DL Number</th>
+                    <th className="px-3 py-2.5 font-semibold">Block Type</th>
+                    <th className="px-3 py-2.5 font-semibold">Location</th>
+                    <th className="px-3 py-2.5 font-semibold">Date</th>
+                    <th className="px-3 py-2.5 font-semibold">Status</th>
+                    <th className="px-3 py-2.5 font-semibold">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {recent.map((cert, idx) => (
+                    <tr key={cert.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                      <td className="px-3 py-2.5 text-slate-500">
+                        {listMode === 'search' ? (listPage - 1) * LIST_PAGE_SIZE + idx + 1 : idx + 1}
+                      </td>
+                      <td className="px-3 py-2.5 font-semibold text-slate-800">{cert.certificate_number}</td>
+                      <td className="px-3 py-2.5">{cert.candidate_name}</td>
+                      <td className="px-3 py-2.5">{cert.driving_licence_number || '—'}</td>
+                      <td className="px-3 py-2.5">{cert.block_type || '—'}</td>
+                      <td className="max-w-[160px] truncate px-3 py-2.5">{cert.address}</td>
+                      <td className="px-3 py-2.5">{formatDate(cert.training_date)}</td>
+                      <td className="px-3 py-2.5"><StatusBadge status={cert.print_status} /></td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex min-w-[168px] flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            className="rounded-md bg-[#1d4ed8] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:brightness-110"
+                            onClick={() => navigate(`/certificates/${cert.id}`)}
+                          >
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-md bg-[#ea580c] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:brightness-110"
+                            onClick={() => navigate(`/certificates/${cert.id}/print`)}
+                          >
+                            Print
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-md bg-[#dc2626] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:brightness-110"
+                            onClick={() => setDeleteId(cert.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {listMode === 'search' ? (
+              <Pagination
+                page={listPage}
+                pages={listPages}
+                total={listTotal}
+                pageSize={LIST_PAGE_SIZE}
+                onChange={(p) => void runSearch(p)}
+              />
+            ) : (
+              <div className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
+                Showing latest {recent.length} certificate{recent.length === 1 ? '' : 's'}
+              </div>
+            )}
+          </>
         )}
       </section>
 

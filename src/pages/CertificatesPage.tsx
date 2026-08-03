@@ -8,6 +8,7 @@ import {
   EmptyState,
   LoadingSpinner,
   PageHeader,
+  Pagination,
   StatusBadge,
   notify,
 } from '../components/ui'
@@ -22,11 +23,12 @@ export default function CertificatesPage() {
   const [loading, setLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const PAGE_SIZE = 20
 
   const load = async (p = page) => {
     setLoading(true)
     try {
-      const data = await certificatesApi.list(p, 20)
+      const data = await certificatesApi.list(p, PAGE_SIZE)
       setItems(data.items)
       setPages(data.pages)
       setTotal(data.total)
@@ -115,7 +117,7 @@ export default function CertificatesPage() {
               <tbody>
                 {items.map((cert, idx) => (
                   <tr key={cert.id} className="border-t border-slate-100 align-top">
-                    <td className="px-4 py-3 text-slate-500">{(page - 1) * 20 + idx + 1}</td>
+                    <td className="px-4 py-3 text-slate-500">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                     <td className="px-4 py-3 font-medium">{cert.certificate_number}</td>
                     <td className="px-4 py-3">{cert.candidate_name}</td>
                     <td className="px-4 py-3 max-w-[180px] truncate">{cert.address}</td>
@@ -169,27 +171,13 @@ export default function CertificatesPage() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-sm text-slate-500">Page {page} of {pages || 1}</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm disabled:opacity-40"
-                onClick={() => void load(page - 1)}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                disabled={page >= pages}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm disabled:opacity-40"
-                onClick={() => void load(page + 1)}
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            pages={pages}
+            total={total}
+            pageSize={PAGE_SIZE}
+            onChange={(p) => void load(p)}
+          />
         </div>
       )}
 

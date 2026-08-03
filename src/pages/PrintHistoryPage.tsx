@@ -2,22 +2,25 @@ import { useEffect, useState } from 'react'
 import { printHistoryApi } from '../api'
 import { getErrorMessage } from '../api/client'
 import type { PrintHistoryItem } from '../types'
-import { EmptyState, LoadingSpinner, PageHeader, notify } from '../components/ui'
+import { EmptyState, LoadingSpinner, PageHeader, Pagination, notify } from '../components/ui'
 import { formatDateTime } from '../utils'
 
 export default function PrintHistoryPage() {
   const [items, setItems] = useState<PrintHistoryItem[]>([])
   const [page, setPage] = useState(1)
   const [pages, setPages] = useState(1)
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const PAGE_SIZE = 20
 
   const load = async (p = 1) => {
     setLoading(true)
     try {
-      const data = await printHistoryApi.list(p, 20)
+      const data = await printHistoryApi.list(p, PAGE_SIZE)
       setItems(data.items)
       setPage(data.page)
       setPages(data.pages)
+      setTotal(data.total)
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -65,13 +68,13 @@ export default function PrintHistoryPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-sm text-slate-500">Page {page} of {pages || 1}</p>
-            <div className="flex gap-2">
-              <button type="button" disabled={page <= 1} className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40" onClick={() => void load(page - 1)}>Previous</button>
-              <button type="button" disabled={page >= pages} className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40" onClick={() => void load(page + 1)}>Next</button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            pages={pages}
+            total={total}
+            pageSize={PAGE_SIZE}
+            onChange={(p) => void load(p)}
+          />
         </div>
       )}
     </div>

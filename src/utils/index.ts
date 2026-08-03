@@ -1,8 +1,8 @@
 export const CERTIFICATE_PAGE = {
-  // Design artwork aspect — must match backend CERTIFICATE_ASPECT_* / fit_certificate_mm
+  // Design artwork aspect (on-screen preview). PDF fills the Settings paper size edge-to-edge.
   aspectW: 686,
   aspectH: 938,
-  // Fitted certificate width on A4 (letterboxed). Keep in sync with backend fit_certificate_mm('a4').
+  // Reference width for cqw font scaling (A4 width).
   widthMm: 210,
 }
 
@@ -86,17 +86,17 @@ export const DEFAULT_FIELD_POSITIONS = {
     x: 50,
     y: 55.5,
     width: 50,
-    font_size: 19.86,
-    font_family: "'Open Sans', sans-serif",
-    font_weight: '600',
+    font_size: 18,
+    font_family: 'Arial, Helvetica, sans-serif',
+    font_weight: '700',
     text_color: '#1A2B56',
     text_align: 'center',
   },
   address: {
-    x: 54,
+    x: 53,
     y: 66,
     width: 62,
-    font_size: 16.53,
+    font_size: 15.34,
     font_family: "'Open Sans', sans-serif",
     font_weight: '600',
     text_color: '#1A2B56',
@@ -104,22 +104,22 @@ export const DEFAULT_FIELD_POSITIONS = {
     text_decoration: 'underline',
   },
   training_date: {
-    x: 78,
-    y: 83.8,
-    width: 18,
-    font_size: 11.33,
-    font_family: "'Open Sans', sans-serif",
-    font_weight: '600',
+    x: 74,
+    y: 84.2,
+    width: 22,
+    font_size: 10.5,
+    font_family: "'Open Sans', Arial, Helvetica, sans-serif",
+    font_weight: '700',
     text_color: '#1A2B56',
     text_align: 'left',
   },
   certificate_number: {
-    x: 79,
-    y: 89.5,
-    width: 18,
-    font_size: 11.33,
-    font_family: "'Open Sans', sans-serif",
-    font_weight: '600',
+    x: 73,
+    y: 89.2,
+    width: 22,
+    font_size: 12.7,
+    font_family: "'Open Sans', Arial, Helvetica, sans-serif",
+    font_weight: '700',
     text_color: '#1A2B56',
     text_align: 'left',
   },

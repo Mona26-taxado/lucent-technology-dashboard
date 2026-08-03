@@ -35,7 +35,7 @@ export const dashboardApi = {
     const { data } = await api.get<DashboardSummary>('/dashboard/summary')
     return data
   },
-  recent: async (limit = 10) => {
+  recent: async (limit = 3) => {
     const { data } = await api.get<Certificate[]>('/dashboard/recent-certificates', {
       params: { limit },
     })
