@@ -174,10 +174,10 @@ export default function DashboardPage() {
     setBusy(true)
     try {
       await certificatesApi.generatePdf(cert.id)
-      notify('Certificate generated — form cleared for next entry', 'success')
+      notify('Certificate generated — ready for next candidate', 'success')
       await loadRecentList()
-      // Clear candidate fields so the next entry starts blank
-      await resetForm()
+      // Keep Training Company Details; only clear name + DL for next entry
+      await prepareNextCandidate()
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -199,6 +199,28 @@ export default function DashboardPage() {
       notify('Logo uploaded', 'success')
     } catch (error) {
       notify(getErrorMessage(error), 'error')
+    }
+  }
+
+  /** After generate: clear only candidate name + DL; keep company/location/date/logo. */
+  const prepareNextCandidate = async () => {
+    setSavedId(null)
+    setShowPreview(false)
+    try {
+      const next = await certificatesApi.nextNumber()
+      setForm((prev) => ({
+        ...prev,
+        candidate_name: '',
+        driving_licence_number: '',
+        certificate_number: next.automatic_numbering ? next.certificate_number : '',
+      }))
+    } catch {
+      setForm((prev) => ({
+        ...prev,
+        candidate_name: '',
+        driving_licence_number: '',
+        certificate_number: '',
+      }))
     }
   }
 
