@@ -14,6 +14,7 @@ import TemplatesPage from './pages/TemplatesPage'
 import PrintHistoryPage from './pages/PrintHistoryPage'
 import SettingsPage from './pages/SettingsPage'
 import BackupPage from './pages/BackupPage'
+import BulkDownloadPage from './pages/BulkDownloadPage'
 import ReportsPage from './pages/ReportsPage'
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="certificates/:id/edit" element={<CertificateFormPage />} />
               <Route path="certificates/:id/print" element={<PrintCertificatePage />} />
               <Route path="search" element={<SearchPage />} />
+              <Route path="bulk-download" element={<BulkDownloadPage />} />
               <Route path="templates" element={<TemplatesPage />} />
               <Route path="print-history" element={<PrintHistoryPage />} />
               <Route path="reports" element={<ReportsPage />} />

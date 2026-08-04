@@ -5,7 +5,6 @@ import { getErrorMessage } from '../api/client'
 import type { CertificateFormData, CertificateTemplate, AppSettings, Certificate } from '../types'
 import CertificatePreview from '../components/CertificatePreview'
 import { LoadingSpinner, PageHeader, notify } from '../components/ui'
-import { CERTIFICATE_TYPES } from '../utils'
 
 const emptyForm: CertificateFormData = {
   candidate_name: '',
@@ -13,7 +12,6 @@ const emptyForm: CertificateFormData = {
   training_date: new Date().toISOString().slice(0, 10),
   certificate_number: '',
   driving_licence_number: '',
-  certificate_type: '',
   company_name: '',
   training_centre_name: '',
   authorized_person_name: '',
@@ -63,7 +61,6 @@ export default function CertificateFormPage() {
             training_date: cert.training_date,
             certificate_number: cert.certificate_number,
             driving_licence_number: cert.driving_licence_number || '',
-            certificate_type: cert.certificate_type || '',
             company_name: cert.company_name || '',
             training_centre_name: cert.training_centre_name || '',
             authorized_person_name: cert.authorized_person_name || '',
@@ -123,7 +120,6 @@ export default function CertificateFormPage() {
       address: form.address.trim(),
       training_date: form.training_date,
       driving_licence_number: form.driving_licence_number || undefined,
-      certificate_type: form.certificate_type || undefined,
       company_name: form.company_name || undefined,
       training_centre_name: form.training_centre_name || undefined,
       authorized_person_name: form.authorized_person_name || undefined,
@@ -322,20 +318,6 @@ export default function CertificateFormPage() {
                 ))}
               </select>
               {errors.template_id && <p className="error">{errors.template_id}</p>}
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Certificate Type</label>
-              <select
-                className="input"
-                value={form.certificate_type || ''}
-                onChange={(e) => setField('certificate_type', e.target.value)}
-              >
-                <option value="">Optional</option>
-                {CERTIFICATE_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
             </div>
 
             <div>

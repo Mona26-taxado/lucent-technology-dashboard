@@ -106,7 +106,6 @@ export default function CertificateDetailPage() {
           <Row label="Address / Location" value={cert.address} />
           <Row label="Training Date" value={formatDate(cert.training_date)} />
           <Row label="Driving Licence" value={cert.driving_licence_number || '—'} />
-          <Row label="Certificate Type" value={cert.certificate_type || '—'} />
           <Row label="Company" value={cert.company_name || '—'} />
           <Row label="Training Centre" value={cert.training_centre_name || '—'} />
           <Row label="Print Count" value={String(cert.print_count)} />

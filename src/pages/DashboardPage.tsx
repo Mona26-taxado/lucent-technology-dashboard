@@ -13,10 +13,8 @@ import {
   StatusBadge,
   notify,
 } from '../components/ui'
-import { CERTIFICATE_TYPES, formatDate } from '../utils'
+import { formatDate } from '../utils'
 import { COMPANY_LOGOS, matchCompanyLogo, companyLogoPublicUrl } from '../utils/companyLogos'
-
-const BLOCK_TYPES = ['General', 'Depot', 'Plant', 'Retail', 'Corporate', 'Other']
 
 const emptyForm: CertificateFormData = {
   candidate_name: '',
@@ -24,8 +22,6 @@ const emptyForm: CertificateFormData = {
   training_date: new Date().toISOString().slice(0, 10),
   certificate_number: '',
   driving_licence_number: '',
-  certificate_type: 'Training Completion',
-  block_type: '',
   company_name: '',
   template_id: null,
   logo_path: '',
@@ -133,8 +129,6 @@ export default function DashboardPage() {
     address: form.address.trim(),
     training_date: form.training_date,
     driving_licence_number: form.driving_licence_number || undefined,
-    certificate_type: form.certificate_type || undefined,
-    block_type: form.block_type || undefined,
     company_name: form.company_name || undefined,
     template_id: form.template_id,
     logo_path: form.logo_path || undefined,
@@ -180,9 +174,10 @@ export default function DashboardPage() {
     setBusy(true)
     try {
       await certificatesApi.generatePdf(cert.id)
-      notify('Certificate generated', 'success')
-      setShowPreview(true)
+      notify('Certificate generated — form cleared for next entry', 'success')
       await loadRecentList()
+      // Clear candidate fields so the next entry starts blank
+      await resetForm()
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -219,10 +214,9 @@ export default function DashboardPage() {
         address: settings?.default_address || '',
         template_id: settings?.default_template_id || templates[0]?.id || null,
         signature_path: settings?.default_signature_path || '',
-        certificate_type: 'Training Completion',
       })
     } catch {
-      setForm({ ...emptyForm, certificate_type: 'Training Completion' })
+      setForm({ ...emptyForm })
     }
   }
 
@@ -338,7 +332,6 @@ export default function DashboardPage() {
                   className="lt-input"
                   value={form.address}
                   onChange={(e) => setField('address', e.target.value)}
-                  placeholder="e.g. HPCL BOKARO DEPOT"
                 />
               </div>
             </div>
@@ -376,7 +369,6 @@ export default function DashboardPage() {
                   className="lt-input lt-input-with-icon"
                   value={form.address}
                   onChange={(e) => setField('address', e.target.value)}
-                  placeholder="Training location"
                 />
               </div>
             </div>
@@ -387,57 +379,30 @@ export default function DashboardPage() {
       {/* Candidate Details */}
       <section className="lt-section">
         <div className="lt-section-head bg-[#7c3aed]">Candidate Details</div>
-        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div>
+        <div className="grid gap-4 p-4 sm:grid-cols-2">
+          <div className="min-w-0">
             <label className="mb-1 block text-xs font-bold text-slate-600">Candidate Name</label>
             <div className="relative">
               <span className="lt-input-icon">👤</span>
               <input
-                className="lt-input lt-input-with-icon"
+                className="lt-input lt-input-with-icon w-full"
                 value={form.candidate_name}
                 onChange={(e) => setField('candidate_name', e.target.value)}
                 placeholder="Full name"
               />
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="mb-1 block text-xs font-bold text-slate-600">DL Number</label>
             <div className="relative">
               <span className="lt-input-icon">🪪</span>
               <input
-                className="lt-input lt-input-with-icon"
+                className="lt-input lt-input-with-icon w-full"
                 value={form.driving_licence_number || ''}
                 onChange={(e) => setField('driving_licence_number', e.target.value)}
                 placeholder="Driving licence no."
               />
             </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-slate-600">Block Type</label>
-            <select
-              className="lt-input"
-              value={form.block_type || ''}
-              onChange={(e) => setField('block_type', e.target.value)}
-            >
-              <option value="">Select</option>
-              {BLOCK_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-bold text-slate-600">Certificate Type</label>
-            <select
-              className="lt-input"
-              value={form.certificate_type || ''}
-              onChange={(e) => setField('certificate_type', e.target.value)}
-            >
-              <option value="">Select</option>
-              <option value="Training Completion">Training Completion</option>
-              {CERTIFICATE_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
           </div>
         </div>
       </section>
@@ -477,6 +442,23 @@ export default function DashboardPage() {
           </div>
         </section>
       )}
+
+      {/* Bulk download by date */}
+      <section className="lt-section">
+        <div className="lt-section-head bg-[#0f766e]">Bulk Download by Date</div>
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-600">
+            Filter certificates by training date and download all matching PDFs in one ZIP file.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/bulk-download')}
+            className="lt-action-btn w-full shrink-0 bg-[#0d9488] sm:w-auto"
+          >
+            Open Bulk Download
+          </button>
+        </div>
+      </section>
 
       {/* Search */}
       <section className="lt-section">
@@ -533,7 +515,6 @@ export default function DashboardPage() {
                     <th className="px-3 py-2.5 font-semibold">Certificate No.</th>
                     <th className="px-3 py-2.5 font-semibold">Candidate Name</th>
                     <th className="px-3 py-2.5 font-semibold">DL Number</th>
-                    <th className="px-3 py-2.5 font-semibold">Block Type</th>
                     <th className="px-3 py-2.5 font-semibold">Location</th>
                     <th className="px-3 py-2.5 font-semibold">Date</th>
                     <th className="px-3 py-2.5 font-semibold">Status</th>
@@ -549,7 +530,6 @@ export default function DashboardPage() {
                       <td className="px-3 py-2.5 font-semibold text-slate-800">{cert.certificate_number}</td>
                       <td className="px-3 py-2.5">{cert.candidate_name}</td>
                       <td className="px-3 py-2.5">{cert.driving_licence_number || '—'}</td>
-                      <td className="px-3 py-2.5">{cert.block_type || '—'}</td>
                       <td className="max-w-[160px] truncate px-3 py-2.5">{cert.address}</td>
                       <td className="px-3 py-2.5">{formatDate(cert.training_date)}</td>
                       <td className="px-3 py-2.5"><StatusBadge status={cert.print_status} /></td>

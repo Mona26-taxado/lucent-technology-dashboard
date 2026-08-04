@@ -10,6 +10,7 @@ const navItems = [
   { to: '/certificates/new', label: 'New Certificate', icon: '＋' },
   { to: '/certificates', label: 'All Certificates', icon: '☰' },
   { to: '/search', label: 'Search Certificate', icon: '⌕' },
+  { to: '/bulk-download', label: 'Bulk Download', icon: '⬇' },
   { to: '/print-history', label: 'Print History', icon: '◷' },
   { to: '/reports', label: 'Reports', icon: '▤' },
   { to: '/templates', label: 'Templates', icon: '▦' },

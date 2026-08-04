@@ -13,10 +13,22 @@ import type {
 } from '../types'
 
 export const authApi = {
-  login: async (username: string, password: string) => {
+  loginConfig: async () => {
+    const { data } = await api.get<{ login_email: string; otp_length: number; dev_otp_mode?: boolean }>(
+      '/auth/login-config',
+    )
+    return data
+  },
+  requestOtp: async (email: string) => {
+    const { data } = await api.post<{ message: string; dev_otp?: string | null }>('/auth/request-otp', {
+      email,
+    })
+    return data
+  },
+  verifyOtp: async (email: string, otp: string) => {
     const { data } = await api.post<{ access_token: string; token_type: string }>(
-      '/auth/login/json',
-      { username, password },
+      '/auth/verify-otp',
+      { email, otp },
     )
     return data
   },
@@ -53,6 +65,18 @@ export const certificatesApi = {
   search: async (params: Record<string, string | number | undefined>) => {
     const { data } = await api.get<CertificateListResponse>('/certificates/search', { params })
     return data
+  },
+  bulkDownload: async (params: {
+    training_date?: string
+    date_from?: string
+    date_to?: string
+  }) => {
+    const response = await api.get('/certificates/bulk-download', {
+      params,
+      responseType: 'blob',
+      timeout: 600000,
+    })
+    return response
   },
   get: async (id: number) => {
     const { data } = await api.get<Certificate>(`/certificates/${id}`)

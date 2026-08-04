@@ -14,7 +14,7 @@ import { getErrorMessage } from '../api/client'
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (username: string, password: string) => Promise<void>
+  loginWithOtp: (email: string, otp: string) => Promise<void>
   logout: () => void
   refreshUser: () => Promise<void>
 }
@@ -47,9 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshUser()
   }, [refreshUser])
 
-  const login = useCallback(async (username: string, password: string) => {
+  const loginWithOtp = useCallback(async (email: string, otp: string) => {
     try {
-      const data = await authApi.login(username, password)
+      const data = await authApi.verifyOtp(email, otp)
       localStorage.setItem('access_token', data.access_token)
       const me = await authApi.me()
       setUser(me)
@@ -64,8 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, refreshUser }),
-    [user, loading, login, logout, refreshUser],
+    () => ({ user, loading, loginWithOtp, logout, refreshUser }),
+    [user, loading, loginWithOtp, logout, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

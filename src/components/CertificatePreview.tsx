@@ -42,6 +42,7 @@ function FieldText({
   const pt = style.font_size ?? 14
   const fontSizeCqw = (pt * 0.352778 * 100) / CERTIFICATE_PAGE.widthMm
   const alignLeft = style.text_align === 'left'
+  const fixedWidthLeft = alignLeft && !nowrap
   return (
     <div
       className={`absolute leading-[1.375] ${nowrap ? 'whitespace-nowrap' : 'break-words'} ${
@@ -50,7 +51,7 @@ function FieldText({
       style={{
         left: `${style.x}%`,
         top: `${style.y}%`,
-        width: nowrap || alignLeft ? 'auto' : `${style.width}%`,
+        width: fixedWidthLeft ? `${style.width}%` : nowrap || alignLeft ? 'auto' : `${style.width}%`,
         maxWidth: nowrap || alignLeft ? `${style.width}%` : undefined,
         fontSize: `${fontSizeCqw}cqw`,
         fontFamily: style.font_family,
