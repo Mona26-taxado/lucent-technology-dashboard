@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { certificatesApi } from '../api'
 import { getErrorMessage } from '../api/client'
@@ -22,17 +22,43 @@ export default function CertificatesPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [filters, setFilters] = useState({
+    candidate_name: '',
+    certificate_number: '',
+    training_date: '',
+    date_from: '',
+    date_to: '',
+  })
   const PAGE_SIZE = 20
 
-  const load = async (p = page) => {
+  const setFilter = (key: keyof typeof filters, value: string) =>
+    setFilters((prev) => ({ ...prev, [key]: value }))
+
+  const buildParams = (p: number) => {
+    const params: Record<string, string | number | undefined> = {
+      page: p,
+      page_size: PAGE_SIZE,
+    }
+    if (filters.candidate_name.trim()) params.candidate_name = filters.candidate_name.trim()
+    if (filters.certificate_number.trim()) params.certificate_number = filters.certificate_number.trim()
+    if (filters.training_date) params.training_date = filters.training_date
+    if (filters.date_from) params.date_from = filters.date_from
+    if (filters.date_to) params.date_to = filters.date_to
+    return params
+  }
+
+  const load = async (p = 1) => {
     setLoading(true)
     try {
-      const data = await certificatesApi.list(p, PAGE_SIZE)
+      const data = await certificatesApi.search(buildParams(p))
       setItems(data.items)
       setPages(data.pages)
       setTotal(data.total)
       setPage(data.page)
+      setSelected(new Set())
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -42,7 +68,56 @@ export default function CertificatesPage() {
 
   useEffect(() => {
     void load(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const onFilter = (e: FormEvent) => {
+    e.preventDefault()
+    void load(1)
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      candidate_name: '',
+      certificate_number: '',
+      training_date: '',
+      date_from: '',
+      date_to: '',
+    })
+    // load after state update via timeout — call search with empty immediately
+    void (async () => {
+      setLoading(true)
+      try {
+        const data = await certificatesApi.search({ page: 1, page_size: PAGE_SIZE })
+        setItems(data.items)
+        setPages(data.pages)
+        setTotal(data.total)
+        setPage(data.page)
+        setSelected(new Set())
+      } catch (error) {
+        notify(getErrorMessage(error), 'error')
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }
+
+  const toggleOne = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (selected.size === items.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(items.map((c) => c.id)))
+    }
+  }
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -52,6 +127,22 @@ export default function CertificatesPage() {
       notify('Certificate deleted', 'success')
       setDeleteId(null)
       await load(page)
+    } catch (error) {
+      notify(getErrorMessage(error), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return
+    setBusy(true)
+    try {
+      const res = await certificatesApi.bulkRemove([...selected])
+      notify(res.message || `Deleted ${selected.size} certificate(s)`, 'success')
+      setBulkDeleteOpen(false)
+      setSelected(new Set())
+      await load(1)
     } catch (error) {
       notify(getErrorMessage(error), 'error')
     } finally {
@@ -81,11 +172,23 @@ export default function CertificatesPage() {
     }
   }
 
+  const filterSummary = () => {
+    if (filters.training_date) {
+      return `${total} certificate${total === 1 ? '' : 's'} on ${formatDate(filters.training_date)}`
+    }
+    if (filters.date_from || filters.date_to) {
+      const from = filters.date_from ? formatDate(filters.date_from) : '…'
+      const to = filters.date_to ? formatDate(filters.date_to) : '…'
+      return `${total} certificate${total === 1 ? '' : 's'} (${from} – ${to})`
+    }
+    return `${total} certificate record${total === 1 ? '' : 's'}`
+  }
+
   return (
     <div>
       <PageHeader
         title="All Certificates"
-        subtitle={`${total} certificate record${total === 1 ? '' : 's'}`}
+        subtitle={filterSummary()}
         actions={
           <Link to="/certificates/new" className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800">
             New Certificate
@@ -93,16 +196,99 @@ export default function CertificatesPage() {
         }
       />
 
+      <section className="lt-section mb-4">
+        <div className="lt-section-head bg-[#0d9488]">Filters & search</div>
+        <form onSubmit={onFilter} className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:items-end">
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-600">Training Date (exact)</label>
+            <input
+              type="date"
+              className="lt-input"
+              value={filters.training_date}
+              onChange={(e) => setFilter('training_date', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-600">Date From</label>
+            <input
+              type="date"
+              className="lt-input"
+              value={filters.date_from}
+              onChange={(e) => setFilter('date_from', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-600">Date To</label>
+            <input
+              type="date"
+              className="lt-input"
+              value={filters.date_to}
+              onChange={(e) => setFilter('date_to', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-600">Candidate Name</label>
+            <input
+              className="lt-input"
+              value={filters.candidate_name}
+              onChange={(e) => setFilter('candidate_name', e.target.value)}
+              placeholder="Search name"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-600">Certificate No.</label>
+            <input
+              className="lt-input"
+              value={filters.certificate_number}
+              onChange={(e) => setFilter('certificate_number', e.target.value)}
+              placeholder="LT/0004000"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" className="lt-action-btn flex-1 bg-[#7c3aed]">
+              Apply
+            </button>
+            <button type="button" onClick={clearFilters} className="lt-action-btn flex-1 bg-[#ea580c]">
+              Clear
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {selected.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-semibold text-red-800">
+            {selected.size} selected
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setBulkDeleteOpen(true)}
+            className="lt-action-btn bg-[#dc2626]"
+          >
+            Bulk Delete
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <LoadingSpinner />
       ) : items.length === 0 ? (
-        <EmptyState title="No certificates found" description="Create a certificate to see it listed here." />
+        <EmptyState title="No certificates found" description="Try another date, name, or certificate number." />
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <div className="lt-table-wrap">
+          <div className="lt-table-wrap">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
+                  <th className="px-4 py-3 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={items.length > 0 && selected.size === items.length}
+                      onChange={toggleAll}
+                      aria-label="Select all on page"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium">S.No</th>
                   <th className="px-4 py-3 font-medium">Certificate No.</th>
                   <th className="px-4 py-3 font-medium">Candidate</th>
@@ -117,6 +303,14 @@ export default function CertificatesPage() {
               <tbody>
                 {items.map((cert, idx) => (
                   <tr key={cert.id} className="border-t border-slate-100 align-top">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(cert.id)}
+                        onChange={() => toggleOne(cert.id)}
+                        aria-label={`Select ${cert.certificate_number}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-slate-500">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                     <td className="px-4 py-3 font-medium">{cert.certificate_number}</td>
                     <td className="px-4 py-3">{cert.candidate_name}</td>
@@ -189,6 +383,16 @@ export default function CertificatesPage() {
         loading={busy}
         onCancel={() => setDeleteId(null)}
         onConfirm={() => void handleDelete()}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        title={`Delete ${selected.size} certificates?`}
+        message="Selected certificates will be permanently removed. This cannot be undone."
+        confirmLabel="Bulk Delete"
+        loading={busy}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onConfirm={() => void handleBulkDelete()}
       />
     </div>
   )

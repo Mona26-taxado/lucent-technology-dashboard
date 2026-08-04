@@ -1,10 +1,9 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { certificatesApi, dashboardApi, templatesApi, settingsApi } from '../api'
 import { getErrorMessage } from '../api/client'
 import type { Certificate, CertificateFormData, CertificateTemplate, AppSettings } from '../types'
 import AuthImage from '../components/AuthImage'
-import CertificatePreview from '../components/CertificatePreview'
 import {
   ConfirmDialog,
   EmptyState,
@@ -35,7 +34,6 @@ export default function DashboardPage() {
   const [recent, setRecent] = useState<Certificate[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
   const [savedId, setSavedId] = useState<number | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [searchName, setSearchName] = useState('')
@@ -45,11 +43,6 @@ export default function DashboardPage() {
   const [listPages, setListPages] = useState(1)
   const [listTotal, setListTotal] = useState(0)
   const LIST_PAGE_SIZE = 10
-
-  const selectedTemplate = useMemo(
-    () => templates.find((t) => t.id === form.template_id) || templates.find((t) => t.is_default) || templates[0],
-    [templates, form.template_id],
-  )
 
   const load = async () => {
     setLoading(true)
@@ -185,6 +178,30 @@ export default function DashboardPage() {
     }
   }
 
+  const handleGenerateAndDownload = async () => {
+    const cert = await saveRecord()
+    if (!cert) return
+    setBusy(true)
+    try {
+      const updated = await certificatesApi.generatePdf(cert.id)
+      const response = await certificatesApi.downloadPdf(updated.id)
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${updated.certificate_number.replace(/\//g, '-')}-${updated.candidate_name}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      notify('Certificate generated and downloaded', 'success')
+      await loadRecentList()
+      await prepareNextCandidate()
+    } catch (error) {
+      notify(getErrorMessage(error), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handlePrint = async () => {
     const cert = savedId ? await certificatesApi.get(savedId) : await saveRecord()
     if (!cert) return
@@ -205,7 +222,6 @@ export default function DashboardPage() {
   /** After generate: clear only candidate name + DL; keep company/location/date/logo. */
   const prepareNextCandidate = async () => {
     setSavedId(null)
-    setShowPreview(false)
     try {
       const next = await certificatesApi.nextNumber()
       setForm((prev) => ({
@@ -226,7 +242,6 @@ export default function DashboardPage() {
 
   const resetForm = async () => {
     setSavedId(null)
-    setShowPreview(false)
     try {
       const next = await certificatesApi.nextNumber()
       setForm({
@@ -436,8 +451,8 @@ export default function DashboardPage() {
           <button type="button" disabled={busy} onClick={() => void handleGenerate()} className="lt-action-btn w-full bg-[#16a34a]">
             ✦ Generate Certificate
           </button>
-          <button type="button" disabled={busy} onClick={() => setShowPreview(true)} className="lt-action-btn w-full bg-[#1d4ed8]">
-            👁 Preview Certificate
+          <button type="button" disabled={busy} onClick={() => void handleGenerateAndDownload()} className="lt-action-btn w-full bg-[#1d4ed8]">
+            ⬇ Generate & Download
           </button>
           <button type="button" disabled={busy} onClick={() => void handlePrint()} className="lt-action-btn w-full bg-[#ea580c]">
             🖨 Print Certificate
@@ -450,20 +465,6 @@ export default function DashboardPage() {
           </button>
         </div>
       </section>
-
-      {showPreview && (
-        <section className="lt-section">
-          <div className="lt-section-head flex items-center justify-between bg-[#0b2a5b]">
-            <span>Certificate Preview</span>
-            <button type="button" className="text-xs font-semibold text-blue-100 hover:text-white" onClick={() => setShowPreview(false)}>
-              Close
-            </button>
-          </div>
-          <div className="p-4">
-            <CertificatePreview data={form} template={selectedTemplate} />
-          </div>
-        </section>
-      )}
 
       {/* Bulk download by date */}
       <section className="lt-section">

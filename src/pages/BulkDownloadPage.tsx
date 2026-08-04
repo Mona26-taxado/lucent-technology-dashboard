@@ -167,8 +167,13 @@ export default function BulkDownloadPage() {
             </button>
           </div>
           <p className="text-xs text-slate-500">
-            Missing PDFs are generated automatically before the ZIP is created (max 500 certificates).
+            Already generated PDFs are packed instantly. Only missing PDFs are created (one shared browser — much faster). Max 500.
           </p>
+          {downloading && (
+            <p className="text-sm font-semibold text-emerald-700">
+              Preparing ZIP… first run can take a minute if many PDFs are missing. Please wait.
+            </p>
+          )}
         </form>
       </section>
 

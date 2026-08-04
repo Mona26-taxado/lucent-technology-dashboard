@@ -13,15 +13,10 @@ import type {
 } from '../types'
 
 export const authApi = {
-  loginConfig: async () => {
-    const { data } = await api.get<{ login_email: string; otp_length: number; dev_otp_mode?: boolean }>(
-      '/auth/login-config',
-    )
-    return data
-  },
-  requestOtp: async (email: string) => {
+  requestOtp: async (email: string, password: string) => {
     const { data } = await api.post<{ message: string; dev_otp?: string | null }>('/auth/request-otp', {
       email,
+      password,
     })
     return data
   },
@@ -30,6 +25,10 @@ export const authApi = {
       '/auth/verify-otp',
       { email, otp },
     )
+    return data
+  },
+  loginConfig: async () => {
+    const { data } = await api.get<{ otp_length: number; dev_otp_mode?: boolean }>('/auth/login-config')
     return data
   },
   me: async () => {
@@ -92,6 +91,10 @@ export const certificatesApi = {
   },
   remove: async (id: number) => {
     const { data } = await api.delete(`/certificates/${id}`)
+    return data
+  },
+  bulkRemove: async (ids: number[]) => {
+    const { data } = await api.post<{ message: string }>('/certificates/bulk-delete', { ids })
     return data
   },
   nextNumber: async () => {

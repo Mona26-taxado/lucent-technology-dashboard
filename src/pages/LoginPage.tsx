@@ -8,7 +8,8 @@ import InstallAppButton from '../components/InstallAppButton'
 export default function LoginPage() {
   const { loginWithOtp } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('Lucenttechnology01@gmail.com')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [otp, setOtp] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [error, setError] = useState('')
@@ -21,7 +22,6 @@ export default function LoginPage() {
     const load = async () => {
       try {
         const cfg = await authApi.loginConfig()
-        if (cfg.login_email) setEmail(cfg.login_email)
         setDevOtpMode(Boolean(cfg.dev_otp_mode))
       } catch {
         /* keep default */
@@ -33,9 +33,13 @@ export default function LoginPage() {
   const sendOtp = async () => {
     setError('')
     setInfo('')
+    if (!email.trim() || !password) {
+      setError('Enter email and password first')
+      return
+    }
     setSending(true)
     try {
-      const res = await authApi.requestOtp(email.trim())
+      const res = await authApi.requestOtp(email.trim(), password)
       setOtpSent(true)
       if (res.dev_otp) {
         setOtp(res.dev_otp)
@@ -76,7 +80,6 @@ export default function LoginPage() {
         style={{ backgroundImage: "url('/backgrounds/truck-simulator.png')" }}
         aria-hidden
       />
-      {/* Soft dark veil only — no blue gradient */}
       <div className="pointer-events-none absolute inset-0 bg-black/35" aria-hidden />
 
       <div className="absolute right-3 top-3 z-10 sm:right-5 sm:top-5">
@@ -100,10 +103,33 @@ export default function LoginPage() {
             <label className="mb-1.5 block text-sm font-bold text-slate-700">Email</label>
             <input
               type="email"
-              className="lt-input bg-slate-50"
+              className="lt-input"
               value={email}
-              readOnly
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setOtpSent(false)
+                setOtp('')
+              }}
+              placeholder="Enter your email"
               autoComplete="username"
+              required
+              disabled={otpSent && sending}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-bold text-slate-700">Password</label>
+            <input
+              type="password"
+              className="lt-input"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setOtpSent(false)
+                setOtp('')
+              }}
+              placeholder="Enter your password"
+              autoComplete="current-password"
               required
             />
           </div>
@@ -160,8 +186,8 @@ export default function LoginPage() {
           </button>
           <p className="text-center text-[11px] text-slate-500">
             {devOtpMode
-              ? 'Local mode: OTP will appear on this screen (no email needed).'
-              : 'An OTP will be sent to your registered email. Password login is disabled.'}
+              ? 'Enter email + password, then use the OTP shown on screen (local mode).'
+              : 'Enter email + password, then verify with the OTP sent to your email.'}
           </p>
         </form>
       </div>
