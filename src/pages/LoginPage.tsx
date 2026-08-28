@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authApi } from '../api'
 import { getErrorMessage } from '../api/client'
@@ -8,6 +8,8 @@ import InstallAppButton from '../components/InstallAppButton'
 export default function LoginPage() {
   const { loginWithOtp } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const resetMessage = (location.state as { message?: string } | null)?.message
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [otp, setOtp] = useState('')
@@ -132,6 +134,14 @@ export default function LoginPage() {
               autoComplete="current-password"
               required
             />
+            <div className="mt-2 text-right">
+              <Link
+                to="/forgot-password"
+                className="text-xs font-semibold text-[#1d6fd8] hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           {otpSent && (
@@ -163,6 +173,11 @@ export default function LoginPage() {
           {info && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
               {info}
+            </div>
+          )}
+          {resetMessage && !info && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {resetMessage}
             </div>
           )}
           {error && (

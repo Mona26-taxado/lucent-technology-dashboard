@@ -39,6 +39,22 @@ export const authApi = {
     const { data } = await api.post('/auth/change-password', { current_password, new_password })
     return data
   },
+  forgotPassword: async (email: string) => {
+    const { data } = await api.post<{ message: string; dev_otp?: string | null }>(
+      '/auth/forgot-password',
+      { email },
+    )
+    return data
+  },
+  resetPassword: async (payload: {
+    email: string
+    otp: string
+    new_password: string
+    confirm_password: string
+  }) => {
+    const { data } = await api.post<{ message: string }>('/auth/reset-password', payload)
+    return data
+  },
 }
 
 export const dashboardApi = {

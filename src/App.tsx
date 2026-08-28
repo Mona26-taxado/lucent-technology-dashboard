@@ -4,6 +4,7 @@ import { ProtectedRoute, PublicOnlyRoute } from './routes/ProtectedRoute'
 import DashboardLayout from './layouts/DashboardLayout'
 import { ToastHost } from './components/ui'
 import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import CertificateFormPage from './pages/CertificateFormPage'
 import CertificatesPage from './pages/CertificatesPage'
@@ -25,6 +26,7 @@ export default function App() {
         <Routes>
           <Route element={<PublicOnlyRoute />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>
