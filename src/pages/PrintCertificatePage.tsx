@@ -4,7 +4,7 @@ import { certificatesApi, settingsApi } from '../api'
 import { getErrorMessage } from '../api/client'
 import type { Certificate, AppSettings } from '../types'
 import { LoadingSpinner, notify } from '../components/ui'
-import { PAPER_SIZES, type PaperSizeKey } from '../utils'
+import { PAPER_SIZES, DEFAULT_PAPER_SIZE, type PaperSizeKey } from '../utils'
 
 export default function PrintCertificatePage() {
   const { id } = useParams()
@@ -67,8 +67,8 @@ export default function PrintCertificatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  const paperKey = (appSettings?.paper_size || 'a4') as PaperSizeKey
-  const paper = PAPER_SIZES[paperKey] || PAPER_SIZES.a4
+  const paperKey = (appSettings?.paper_size || DEFAULT_PAPER_SIZE) as PaperSizeKey
+  const paper = PAPER_SIZES[paperKey] || PAPER_SIZES[DEFAULT_PAPER_SIZE]
 
   const setGlobalPaperSize = async (key: PaperSizeKey) => {
     if (!cert || !appSettings || key === paperKey) return
@@ -178,7 +178,7 @@ export default function PrintCertificatePage() {
         <p className="mt-1 text-xs text-slate-500">
           Changing here also updates Settings — every certificate PDF will use this size.
         </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {(Object.keys(PAPER_SIZES) as PaperSizeKey[]).map((key) => {
             const opt = PAPER_SIZES[key]
             const selected = key === paperKey

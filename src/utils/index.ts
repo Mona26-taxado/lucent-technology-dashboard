@@ -4,6 +4,8 @@ export const CERTIFICATE_PAGE = {
   aspectH: 938,
   // Reference width for cqw font scaling (A4 width).
   widthMm: 210,
+  // Overscale background to crop white margin in template artwork (corners).
+  bgBleedScale: 1.08,
 }
 
 /** Public fallback certificate artwork (no auth required) */
@@ -22,9 +24,18 @@ export const PAPER_SIZES = {
     widthMm: 215.9,
     heightMm: 304.8,
   },
+  '9.5x13': {
+    key: '9.5x13',
+    label: '9.5 × 13 in',
+    widthMm: 241.3,
+    heightMm: 330.2,
+  },
 } as const
 
 export type PaperSizeKey = keyof typeof PAPER_SIZES
+
+/** Must match backend/app/core/page_size.py DEFAULT_PAPER_SIZE */
+export const DEFAULT_PAPER_SIZE: PaperSizeKey = '9.5x13'
 
 
 export function formatDate(value?: string | null, fallback = '—') {
@@ -94,7 +105,7 @@ export const DEFAULT_FIELD_POSITIONS = {
   },
   address: {
     x: 37,
-    y: 66,
+    y: 67,
     width: 60,
     font_size: 12.5,
     font_family: "'Open Sans', sans-serif",
@@ -105,7 +116,7 @@ export const DEFAULT_FIELD_POSITIONS = {
   },
   training_date: {
     x: 74,
-    y: 84.2,
+    y: 86.5,
     width: 22,
     font_size: 10.5,
     font_family: "'Open Sans', Arial, Helvetica, sans-serif",
@@ -115,7 +126,7 @@ export const DEFAULT_FIELD_POSITIONS = {
   },
   certificate_number: {
     x: 73,
-    y: 89.2,
+    y: 92.5,
     width: 22,
     font_size: 12.7,
     font_family: "'Open Sans', Arial, Helvetica, sans-serif",

@@ -3,6 +3,7 @@ import { settingsApi, templatesApi } from '../api'
 import { getErrorMessage } from '../api/client'
 import type { AppSettings, CertificateTemplate } from '../types'
 import { LoadingSpinner, PageHeader, notify } from '../components/ui'
+import { DEFAULT_PAPER_SIZE } from '../utils'
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -46,7 +47,7 @@ export default function SettingsPage() {
         date_format: settings.date_format,
         default_address: settings.default_address,
         pdf_storage_directory: settings.pdf_storage_directory,
-        paper_size: settings.paper_size || 'a4',
+        paper_size: settings.paper_size || DEFAULT_PAPER_SIZE,
       })
       setSettings(updated)
       notify('Settings saved', 'success')
@@ -114,14 +115,20 @@ export default function SettingsPage() {
                 You do not need to change size on each entry.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {(
                 [
                   { key: 'a4', title: 'A4', subtitle: '210 × 297 mm', hint: 'Standard office printer' },
                   { key: '8.5x12', title: '8.5 × 12 in', subtitle: '215.9 × 304.8 mm', hint: 'US letter-tall stock' },
+                  {
+                    key: '9.5x13',
+                    title: '9.5 × 13 in',
+                    subtitle: '241.3 × 330.2 mm',
+                    hint: 'Certificate stock — exact match for print (recommended)',
+                  },
                 ] as const
               ).map((opt) => {
-                const selected = (settings.paper_size || 'a4') === opt.key
+                const selected = (settings.paper_size || DEFAULT_PAPER_SIZE) === opt.key
                 return (
                   <button
                     key={opt.key}

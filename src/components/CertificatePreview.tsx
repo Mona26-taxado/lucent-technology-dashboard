@@ -177,7 +177,7 @@ export default function CertificatePreview({
           }}
         >
           <div
-            className="relative w-full overflow-hidden bg-white shadow-md"
+            className="relative w-full overflow-hidden bg-[#1A2B56] shadow-md"
             style={{
               aspectRatio: `${CERTIFICATE_PAGE.aspectW} / ${CERTIFICATE_PAGE.aspectH}`,
               containerType: 'inline-size',
@@ -187,7 +187,11 @@ export default function CertificatePreview({
               <AuthImage
                 path={backgroundPath}
                 alt="Certificate background"
-                className="absolute inset-0 h-full w-full object-fill"
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-fill"
+                style={{
+                  width: `${CERTIFICATE_PAGE.bgBleedScale * 100}%`,
+                  height: `${CERTIFICATE_PAGE.bgBleedScale * 100}%`,
+                }}
                 fallbackSrc={FALLBACK_CERTIFICATE_BG}
                 onError={() => setBgFailed(true)}
               />
@@ -195,7 +199,11 @@ export default function CertificatePreview({
               <img
                 src={FALLBACK_CERTIFICATE_BG}
                 alt="Certificate background"
-                className="absolute inset-0 h-full w-full object-fill"
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-fill"
+                style={{
+                  width: `${CERTIFICATE_PAGE.bgBleedScale * 100}%`,
+                  height: `${CERTIFICATE_PAGE.bgBleedScale * 100}%`,
+                }}
               />
             )}
 
