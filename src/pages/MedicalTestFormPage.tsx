@@ -11,24 +11,26 @@ function todayStr() {
   return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`
 }
 
-const emptyForm: MedicalTestFormData = {
-  exam_date: todayStr(),
-  company_name: '',
-  patient_name: '',
-  age: null,
-  gender: '',
-  height: '',
-  weight: '',
-  chest: '',
-  blood_pressure: '',
-  pulse: '',
-  blood_sugar: '',
-  lab_investigation: '',
-  final_impression: '',
-  certified_name: '',
-  examiner_name: '',
-  examiner_qualification: '',
-  examiner_place: 'Lucknow',
+function blankForm(): MedicalTestFormData {
+  return {
+    exam_date: todayStr(),
+    company_name: '',
+    patient_name: '',
+    age: null,
+    gender: '',
+    height: '',
+    weight: '',
+    chest: '',
+    blood_pressure: '',
+    pulse: '',
+    blood_sugar: '',
+    lab_investigation: '',
+    final_impression: '',
+    certified_name: '',
+    examiner_name: '',
+    examiner_qualification: '',
+    examiner_place: 'Lucknow',
+  }
 }
 
 export default function MedicalTestFormPage() {
@@ -38,15 +40,23 @@ export default function MedicalTestFormPage() {
   const editId = id ? Number(id) : null
   const showHistory = searchParams.get('view') === 'history'
 
-  const [form, setForm] = useState<MedicalTestFormData>(emptyForm)
+  const [form, setForm] = useState<MedicalTestFormData>(blankForm)
   const [savedId, setSavedId] = useState<number | null>(editId)
   const [loading, setLoading] = useState(Boolean(editId))
   const [saving, setSaving] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [history, setHistory] = useState<Awaited<ReturnType<typeof medicalTestsApi.list>> | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [bulkDownloading, setBulkDownloading] = useState(false)
 
+  // Load existing record when editing; clear when opening a brand-new form
   useEffect(() => {
-    if (!editId) return
+    if (!editId) {
+      setForm(blankForm())
+      setSavedId(null)
+      setLoading(false)
+      return
+    }
     const load = async () => {
       setLoading(true)
       try {
@@ -146,14 +156,83 @@ export default function MedicalTestFormPage() {
   }
 
   const clearForm = () => {
-    setForm({ ...emptyForm, exam_date: todayStr() })
+    setForm(blankForm())
     setSavedId(null)
     if (editId) navigate('/medical-tests', { replace: true })
   }
 
+  const startNewForm = () => {
+    setForm(blankForm())
+    setSavedId(null)
+    navigate('/medical-tests')
+  }
+
   const printForm = async () => {
-    await saveRecord()
-    window.print()
+    const row = await saveRecord()
+    if (!row) return
+    window.setTimeout(() => window.print(), 50)
+  }
+
+  const downloadPdf = async () => {
+    const row = await saveRecord()
+    if (!row) return
+    setDownloading(true)
+    try {
+      const response = await medicalTestsApi.downloadPdf(row.id)
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const safe = (row.patient_name || 'form').replace(/[^\w\-]+/g, '_').slice(0, 40)
+      a.download = `medical-${row.id}-${safe}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      notify('PDF downloaded', 'success')
+    } catch (error) {
+      notify(getErrorMessage(error, 'PDF download failed'), 'error')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const downloadAllReports = async () => {
+    if (!history?.items.length) {
+      notify('No reports to download', 'info')
+      return
+    }
+    setBulkDownloading(true)
+    try {
+      const response = await medicalTestsApi.bulkDownload()
+      const blob = new Blob([response.data], { type: 'application/zip' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const d = new Date()
+      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      a.download = `medical-reports-${stamp}.zip`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      notify(`Downloaded ZIP (${history.total} reports)`, 'success')
+    } catch (error) {
+      const err = error as { response?: { data?: Blob } }
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          const parsed = JSON.parse(text) as { detail?: string }
+          notify(parsed.detail || 'Bulk download failed', 'error')
+        } catch {
+          notify(getErrorMessage(error, 'Bulk download failed'), 'error')
+        }
+      } else {
+        notify(getErrorMessage(error, 'Bulk download failed'), 'error')
+      }
+    } finally {
+      setBulkDownloading(false)
+    }
   }
 
   if (loading) {
@@ -169,9 +248,23 @@ export default function MedicalTestFormPage() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-extrabold text-[#0b2a5b]">Medical Test History</h1>
-          <Link to="/medical-tests" className="rounded-lg bg-[#1d6fd8] px-4 py-2 text-sm font-bold text-white">
-            + New Form
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void downloadAllReports()}
+              disabled={bulkDownloading || historyLoading || !history?.items.length}
+              className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {bulkDownloading ? 'Preparing ZIP…' : '⬇ Download All Reports'}
+            </button>
+            <button
+              type="button"
+              onClick={startNewForm}
+              className="rounded-lg bg-[#1d6fd8] px-4 py-2 text-sm font-bold text-white"
+            >
+              + New Form
+            </button>
+          </div>
         </div>
         <div className="overflow-hidden rounded-xl border bg-white">
           {historyLoading ? (
@@ -226,12 +319,15 @@ export default function MedicalTestFormPage() {
           <Link to="/medical-tests?view=history" className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white">
             View History
           </Link>
+          <button type="button" onClick={startNewForm} className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-bold text-white">
+            + New Form
+          </button>
           <button type="button" onClick={clearForm} className="rounded-lg bg-red-600 px-3 py-2 text-sm font-bold text-white">
             Clear
           </button>
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || downloading}
             onClick={() => void saveRecord()}
             className="rounded-lg bg-[#1d6fd8] px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
           >
@@ -239,11 +335,19 @@ export default function MedicalTestFormPage() {
           </button>
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || downloading}
             onClick={() => void printForm()}
+            className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            Print
+          </button>
+          <button
+            type="button"
+            disabled={saving || downloading}
+            onClick={() => void downloadPdf()}
             className="rounded-lg bg-orange-500 px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
           >
-            Print / Download PDF
+            {downloading ? 'Downloading…' : 'Download PDF'}
           </button>
         </div>
       </div>

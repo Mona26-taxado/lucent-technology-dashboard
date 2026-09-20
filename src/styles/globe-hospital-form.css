@@ -53,7 +53,7 @@
 }
 .gh-header-grid {
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr) 70px;
+  grid-template-columns: 118px minmax(0, 1fr) 112px;
   gap: 0 2px;
   align-items: start;
   flex: 0 0 auto;
@@ -138,14 +138,19 @@
 }
 .gh-lucent-col {
   text-align: right;
-  padding-top: 1px;
+  padding-top: 14px;
   overflow: visible;
+  justify-self: end;
+  width: 100%;
 }
 .gh-lucent {
-  height: 46px;
-  width: auto;
-  max-width: 72px;
+  display: block;
+  width: 108px;
+  height: auto;
+  max-width: 100%;
+  margin-left: auto;
   object-fit: contain;
+  object-position: top right;
 }
 .gh-hline {
   flex: 0 0 auto;
@@ -216,8 +221,8 @@
   width: 220px;
 }
 .gh-date .gh-label {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
 }
@@ -225,9 +230,9 @@
   border-bottom: 1px dotted #555;
 }
 .gh-date .gh-input {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: #222;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
 }
 .gh-field {
   display: flex;
@@ -239,8 +244,8 @@
 .gh-label,
 .gh-label-only {
   flex-shrink: 0;
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
   text-transform: uppercase;
   color: #111;
   line-height: 1.1;
@@ -248,7 +253,7 @@
   letter-spacing: 0.01em;
 }
 .gh-leaders {
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -256,7 +261,7 @@
   flex: 1;
   min-width: 0;
   border-bottom: 0.85px solid #555;
-  min-height: 15px;
+  min-height: 16px;
 }
 .gh-rule-dotted {
   border-bottom: 0.85px dotted #555;
@@ -264,7 +269,7 @@
 .gh-blank-rule {
   width: 100%;
   border-bottom: 0.85px solid #555;
-  min-height: 15px;
+  min-height: 16px;
   margin-top: 18px;
   margin-bottom: 0;
 }
@@ -275,12 +280,12 @@
   background: transparent;
   padding: 0 2px 0;
   margin: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--gh-blue);
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
   outline: none;
   font-family: inherit;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 .gh-pair {
   display: flex;
@@ -318,8 +323,8 @@
 .gh-cert {
   margin-top: 2px;
   margin-bottom: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
   text-transform: uppercase;
   line-height: 1.45;
   color: #111;
@@ -339,8 +344,8 @@
 .gh-inline-rule .gh-input {
   display: inline-block;
   text-align: center;
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
 }
 .gh-dots {
   width: 55%;
@@ -363,15 +368,15 @@
   margin-bottom: 0;
 }
 .gh-sign .gh-label {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
 }
 .gh-legal {
   position: absolute;
   right: 0;
   bottom: 2px;
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 700;
   color: #111;
   white-space: nowrap;
 }

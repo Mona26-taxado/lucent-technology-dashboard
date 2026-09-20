@@ -325,7 +325,7 @@ export default function GlobeHospitalForm({ form, onChange }: Props) {
               <span className="gh-24">24X7</span>{' '}
               <span className="gh-em-hi">इमरजेन्सी एण्ड ट्रामा केयर</span>
             </div>
-            <div className="gh-em-phones">EMERGENCY CONTACT NO.: 9307467795, 9305238541</div>
+            <div className="gh-em-phones">EMERGENCY CONTACT NO.: 9307467795, 9794912989</div>
           </div>
           <span className="gh-cross">✚</span>
         </div>
