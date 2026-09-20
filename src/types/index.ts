@@ -132,3 +132,59 @@ export interface NextNumberResponse {
   certificate_number: string
   automatic_numbering: boolean
 }
+
+export interface MedicalTest {
+  id: number
+  exam_date?: string | null
+  company_name?: string | null
+  training_location?: string | null
+  patient_name: string
+  age?: number | null
+  gender?: string | null
+  mobile_number?: string | null
+  height?: string | null
+  weight?: string | null
+  chest?: string | null
+  blood_pressure?: string | null
+  pulse?: string | null
+  blood_sugar?: string | null
+  lab_investigation?: string | null
+  final_impression?: string | null
+  certified_name?: string | null
+  examiner_name?: string | null
+  examiner_qualification?: string | null
+  examiner_place?: string | null
+  created_by?: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MedicalTestFormData {
+  exam_date?: string | null
+  company_name?: string | null
+  training_location?: string | null
+  patient_name: string
+  age?: number | null
+  gender?: string | null
+  mobile_number?: string | null
+  height?: string | null
+  weight?: string | null
+  chest?: string | null
+  blood_pressure?: string | null
+  pulse?: string | null
+  blood_sugar?: string | null
+  lab_investigation?: string | null
+  final_impression?: string | null
+  certified_name?: string | null
+  examiner_name?: string | null
+  examiner_qualification?: string | null
+  examiner_place?: string | null
+}
+
+export interface MedicalTestListResponse {
+  items: MedicalTest[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}

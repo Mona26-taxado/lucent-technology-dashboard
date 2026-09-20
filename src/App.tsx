@@ -17,6 +17,7 @@ import SettingsPage from './pages/SettingsPage'
 import BackupPage from './pages/BackupPage'
 import BulkDownloadPage from './pages/BulkDownloadPage'
 import ReportsPage from './pages/ReportsPage'
+import MedicalTestFormPage from './pages/MedicalTestFormPage'
 
 export default function App() {
   return (
@@ -43,6 +44,8 @@ export default function App() {
               <Route path="templates" element={<TemplatesPage />} />
               <Route path="print-history" element={<PrintHistoryPage />} />
               <Route path="reports" element={<ReportsPage />} />
+              <Route path="medical-tests" element={<MedicalTestFormPage />} />
+              <Route path="medical-tests/:id" element={<MedicalTestFormPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="backup" element={<BackupPage />} />
             </Route>

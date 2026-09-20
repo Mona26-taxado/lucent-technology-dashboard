@@ -10,6 +10,9 @@ import type {
   PrintHistoryListResponse,
   NextNumberResponse,
   FieldPositions,
+  MedicalTest,
+  MedicalTestFormData,
+  MedicalTestListResponse,
 } from '../types'
 
 export const authApi = {
@@ -227,6 +230,38 @@ export const printHistoryApi = {
       params: { page, page_size: pageSize },
     })
     return data
+  },
+}
+
+export const medicalTestsApi = {
+  list: async (page = 1, pageSize = 20, q?: string) => {
+    const { data } = await api.get<MedicalTestListResponse>('/medical-tests', {
+      params: { page, page_size: pageSize, q },
+    })
+    return data
+  },
+  get: async (id: number) => {
+    const { data } = await api.get<MedicalTest>(`/medical-tests/${id}`)
+    return data
+  },
+  create: async (payload: MedicalTestFormData) => {
+    const { data } = await api.post<MedicalTest>('/medical-tests', payload)
+    return data
+  },
+  update: async (id: number, payload: Partial<MedicalTestFormData>) => {
+    const { data } = await api.put<MedicalTest>(`/medical-tests/${id}`, payload)
+    return data
+  },
+  remove: async (id: number) => {
+    const { data } = await api.delete<{ message: string }>(`/medical-tests/${id}`)
+    return data
+  },
+  downloadPdf: async (id: number) => {
+    const response = await api.get(`/medical-tests/${id}/pdf`, {
+      responseType: 'blob',
+      timeout: 120000,
+    })
+    return response
   },
 }
 

@@ -9,6 +9,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', end: true, icon: '▣' },
   { to: '/certificates/new', label: 'New Certificate', icon: '＋' },
   { to: '/certificates', label: 'All Certificates', icon: '☰' },
+  { to: '/medical-tests', label: 'Medical Test Form', icon: '✚' },
   { to: '/search', label: 'Search Certificate', icon: '⌕' },
   { to: '/bulk-download', label: 'Bulk Download', icon: '⬇' },
   { to: '/print-history', label: 'Print History', icon: '◷' },
