@@ -136,6 +136,7 @@ export interface NextNumberResponse {
 export interface MedicalTest {
   id: number
   exam_date?: string | null
+  vehicle_number?: string | null
   company_name?: string | null
   training_location?: string | null
   patient_name: string
@@ -161,6 +162,7 @@ export interface MedicalTest {
 
 export interface MedicalTestFormData {
   exam_date?: string | null
+  vehicle_number?: string | null
   company_name?: string | null
   training_location?: string | null
   patient_name: string

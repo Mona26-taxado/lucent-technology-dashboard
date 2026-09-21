@@ -256,6 +256,10 @@ export const medicalTestsApi = {
     const { data } = await api.delete<{ message: string }>(`/medical-tests/${id}`)
     return data
   },
+  bulkRemove: async (ids: number[]) => {
+    const { data } = await api.post<{ message: string }>('/medical-tests/bulk-delete', { ids })
+    return data
+  },
   downloadPdf: async (id: number) => {
     const response = await api.get(`/medical-tests/${id}/pdf`, {
       responseType: 'blob',

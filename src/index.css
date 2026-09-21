@@ -104,6 +104,54 @@ body {
   min-width: 720px;
 }
 
+/* Medical Test History — table must fill the full card width */
+.medical-history-table-wrap {
+  width: 100%;
+  max-width: none;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.medical-history-table {
+  width: 100%;
+  max-width: none;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.medical-history-table thead,
+.medical-history-table thead tr,
+.medical-history-table thead th {
+  background-color: #0b2a5b;
+  color: #fff;
+}
+
+.medical-history-table .mh-col-check {
+  width: 4%;
+}
+.medical-history-table .mh-col-date {
+  width: 11%;
+}
+.medical-history-table .mh-col-vehicle {
+  width: 14%;
+}
+.medical-history-table .mh-col-patient {
+  width: 13%;
+}
+.medical-history-table .mh-col-company {
+  width: 17%;
+}
+.medical-history-table .mh-col-actions {
+  width: 41%;
+}
+
+.medical-history-table .mh-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* Sharp Medical Test Form helpers (legacy mt-* kept minimal) */
 .mt-sheet {
   border: 1.5px solid #0a3d8f;

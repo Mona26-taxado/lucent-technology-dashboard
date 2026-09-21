@@ -1,10 +1,13 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { medicalTestsApi } from '../api'
 import { getErrorMessage } from '../api/client'
-import type { MedicalTestFormData } from '../types'
-import { LoadingSpinner, notify } from '../components/ui'
+import type { MedicalTest, MedicalTestFormData, MedicalTestListResponse } from '../types'
+import { ConfirmDialog, LoadingSpinner, Pagination, notify } from '../components/ui'
 import GlobeHospitalForm from '../components/medical/GlobeHospitalForm'
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
+const DEFAULT_PAGE_SIZE = 10
 
 function todayStr() {
   const d = new Date()
@@ -14,6 +17,7 @@ function todayStr() {
 function blankForm(): MedicalTestFormData {
   return {
     exam_date: todayStr(),
+    vehicle_number: '',
     company_name: '',
     patient_name: '',
     age: null,
@@ -33,21 +37,66 @@ function blankForm(): MedicalTestFormData {
   }
 }
 
+function formFromRow(row: MedicalTest): MedicalTestFormData {
+  return {
+    exam_date: row.exam_date || todayStr(),
+    vehicle_number: row.vehicle_number || '',
+    company_name: row.company_name || '',
+    patient_name: row.patient_name || '',
+    age: row.age ?? null,
+    gender: row.gender || '',
+    height: row.height || '',
+    weight: row.weight || '',
+    chest: row.chest || '',
+    blood_pressure: row.blood_pressure || '',
+    pulse: row.pulse || '',
+    blood_sugar: row.blood_sugar || '',
+    lab_investigation: row.lab_investigation || '',
+    final_impression: row.final_impression || '',
+    certified_name: row.certified_name || row.patient_name || '',
+    examiner_name: row.examiner_name || '',
+    examiner_qualification: row.examiner_qualification || '',
+    examiner_place: row.examiner_place || 'Lucknow',
+  }
+}
+
+async function triggerPdfDownload(id: number, patientName: string) {
+  const response = await medicalTestsApi.downloadPdf(id)
+  const blob = new Blob([response.data], { type: 'application/pdf' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const safe = (patientName || 'form').replace(/[^\w\-]+/g, '_').slice(0, 40)
+  a.download = `medical-${id}-${safe}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export default function MedicalTestFormPage() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const editId = id ? Number(id) : null
   const showHistory = searchParams.get('view') === 'history'
+  const isEditMode = Boolean(editId)
 
   const [form, setForm] = useState<MedicalTestFormData>(blankForm)
   const [savedId, setSavedId] = useState<number | null>(editId)
   const [loading, setLoading] = useState(Boolean(editId))
   const [saving, setSaving] = useState(false)
   const [downloading, setDownloading] = useState(false)
-  const [history, setHistory] = useState<Awaited<ReturnType<typeof medicalTestsApi.list>> | null>(null)
+
+  const [history, setHistory] = useState<MedicalTestListResponse | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [bulkDownloading, setBulkDownloading] = useState(false)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
   // Load existing record when editing; clear when opening a brand-new form
   useEffect(() => {
@@ -61,25 +110,7 @@ export default function MedicalTestFormPage() {
       setLoading(true)
       try {
         const row = await medicalTestsApi.get(editId)
-        setForm({
-          exam_date: row.exam_date || todayStr(),
-          company_name: row.company_name || '',
-          patient_name: row.patient_name || '',
-          age: row.age ?? null,
-          gender: row.gender || '',
-          height: row.height || '',
-          weight: row.weight || '',
-          chest: row.chest || '',
-          blood_pressure: row.blood_pressure || '',
-          pulse: row.pulse || '',
-          blood_sugar: row.blood_sugar || '',
-          lab_investigation: row.lab_investigation || '',
-          final_impression: row.final_impression || '',
-          certified_name: row.certified_name || row.patient_name || '',
-          examiner_name: row.examiner_name || '',
-          examiner_qualification: row.examiner_qualification || '',
-          examiner_place: row.examiner_place || 'Lucknow',
-        })
+        setForm(formFromRow(row))
         setSavedId(row.id)
       } catch (error) {
         notify(getErrorMessage(error, 'Failed to load'), 'error')
@@ -90,20 +121,30 @@ export default function MedicalTestFormPage() {
     void load()
   }, [editId])
 
+  const loadHistory = useCallback(async (page: number, size: number) => {
+    setHistoryLoading(true)
+    try {
+      let data = await medicalTestsApi.list(page, size)
+      const maxPage = Math.max(1, data.pages || 1)
+      if (page > maxPage && data.total > 0) {
+        data = await medicalTestsApi.list(maxPage, size)
+        setHistoryPage(maxPage)
+      } else {
+        setHistoryPage(page)
+      }
+      setHistory(data)
+      setSelected(new Set())
+    } catch (error) {
+      notify(getErrorMessage(error, 'Failed to load history'), 'error')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!showHistory) return
-    const load = async () => {
-      setHistoryLoading(true)
-      try {
-        setHistory(await medicalTestsApi.list(1, 50))
-      } catch (error) {
-        notify(getErrorMessage(error, 'Failed to load history'), 'error')
-      } finally {
-        setHistoryLoading(false)
-      }
-    }
-    void load()
-  }, [showHistory])
+    void loadHistory(historyPage, pageSize)
+  }, [showHistory, historyPage, pageSize, loadHistory])
 
   const update = <K extends keyof MedicalTestFormData>(key: K, value: MedicalTestFormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -114,6 +155,7 @@ export default function MedicalTestFormPage() {
     const patient = (form.patient_name || '').trim()
     return {
       exam_date: clean(form.exam_date),
+      vehicle_number: clean(form.vehicle_number),
       company_name: clean(form.company_name),
       patient_name: patient,
       age: form.age == null || Number.isNaN(Number(form.age)) ? null : Number(form.age),
@@ -133,19 +175,27 @@ export default function MedicalTestFormPage() {
     }
   }, [form])
 
-  const saveRecord = async () => {
+  const saveRecord = async (opts?: { stayOnForm?: boolean }) => {
     if (!payload.patient_name) {
       notify('Patient name is required', 'error')
       return null
     }
     setSaving(true)
     try {
+      const wasUpdate = Boolean(savedId)
       const row = savedId
         ? await medicalTestsApi.update(savedId, payload)
         : await medicalTestsApi.create(payload)
       setSavedId(row.id)
-      notify(savedId ? 'Updated' : 'Saved', 'success')
-      if (!editId && !savedId) navigate(`/medical-tests/${row.id}`, { replace: true })
+      if (wasUpdate) {
+        notify('Medical test updated successfully.', 'success')
+        if (!opts?.stayOnForm) {
+          navigate('/medical-tests?view=history')
+        }
+      } else {
+        notify('Saved', 'success')
+        if (!editId) navigate(`/medical-tests/${row.id}`, { replace: true })
+      }
       return row
     } catch (error) {
       notify(getErrorMessage(error, 'Failed to save'), 'error')
@@ -168,27 +218,17 @@ export default function MedicalTestFormPage() {
   }
 
   const printForm = async () => {
-    const row = await saveRecord()
+    const row = await saveRecord({ stayOnForm: true })
     if (!row) return
     window.setTimeout(() => window.print(), 50)
   }
 
   const downloadPdf = async () => {
-    const row = await saveRecord()
+    const row = await saveRecord({ stayOnForm: true })
     if (!row) return
     setDownloading(true)
     try {
-      const response = await medicalTestsApi.downloadPdf(row.id)
-      const blob = new Blob([response.data], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const safe = (row.patient_name || 'form').replace(/[^\w\-]+/g, '_').slice(0, 40)
-      a.download = `medical-${row.id}-${safe}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      await triggerPdfDownload(row.id, row.patient_name)
       notify('PDF downloaded', 'success')
     } catch (error) {
       notify(getErrorMessage(error, 'PDF download failed'), 'error')
@@ -198,7 +238,7 @@ export default function MedicalTestFormPage() {
   }
 
   const downloadAllReports = async () => {
-    if (!history?.items.length) {
+    if (!history || history.total <= 0) {
       notify('No reports to download', 'info')
       return
     }
@@ -235,6 +275,101 @@ export default function MedicalTestFormPage() {
     }
   }
 
+  const pageItems = history?.items ?? []
+  const allPageSelected = pageItems.length > 0 && pageItems.every((r) => selected.has(r.id))
+
+  const toggleAllOnPage = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allPageSelected) {
+        pageItems.forEach((r) => next.delete(r.id))
+      } else {
+        pageItems.forEach((r) => next.add(r.id))
+      }
+      return next
+    })
+  }
+
+  const toggleOne = (rowId: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(rowId)) next.delete(rowId)
+      else next.add(rowId)
+      return next
+    })
+  }
+
+  const handleDeleteOne = async () => {
+    if (deleteId == null) return
+    setBusy(true)
+    try {
+      await medicalTestsApi.remove(deleteId)
+      notify('1 medical test report deleted successfully.', 'success')
+      setDeleteId(null)
+      await loadHistory(historyPage, pageSize)
+    } catch (error) {
+      notify(getErrorMessage(error, 'Delete failed'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return
+    setBusy(true)
+    try {
+      const ids = [...selected]
+      const res = await medicalTestsApi.bulkRemove(ids)
+      notify(res.message || `${ids.length} medical test reports deleted successfully.`, 'success')
+      setBulkDeleteOpen(false)
+      setSelected(new Set())
+      await loadHistory(historyPage, pageSize)
+    } catch (error) {
+      notify(getErrorMessage(error, 'Bulk delete failed'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRowDownload = async (row: MedicalTest) => {
+    setBusy(true)
+    try {
+      await triggerPdfDownload(row.id, row.patient_name)
+      notify('PDF downloaded', 'success')
+    } catch (error) {
+      notify(getErrorMessage(error, 'PDF download failed'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRowPrint = async (row: MedicalTest) => {
+    setBusy(true)
+    try {
+      const response = await medicalTestsApi.downloadPdf(row.id)
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const win = window.open(url, '_blank')
+      if (win) {
+        win.addEventListener('load', () => {
+          win.focus()
+          win.print()
+        })
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (error) {
+      notify(getErrorMessage(error, 'Print failed'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const changePageSize = (size: number) => {
+    setPageSize(size)
+    setHistoryPage(1)
+    setSelected(new Set())
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -244,62 +379,287 @@ export default function MedicalTestFormPage() {
   }
 
   if (showHistory) {
+    const actionBtn =
+      'rounded-md px-2.5 py-1.5 text-[11px] font-semibold text-white hover:brightness-110 disabled:opacity-60 sm:py-1'
+
     return (
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-extrabold text-[#0b2a5b]">Medical Test History</h1>
-          <div className="flex flex-wrap gap-2">
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <h1 className="text-lg font-extrabold text-[#0b2a5b] sm:text-xl">Medical Test History</h1>
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+            {selected.size > 0 ? (
+              <>
+                <span className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 sm:justify-start">
+                  {selected.size} selected
+                </span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:py-2"
+                >
+                  Delete Selected ({selected.size})
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               onClick={() => void downloadAllReports()}
-              disabled={bulkDownloading || historyLoading || !history?.items.length}
-              className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+              disabled={bulkDownloading || historyLoading || !history || history.total <= 0}
+              className="rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:py-2"
             >
               {bulkDownloading ? 'Preparing ZIP…' : '⬇ Download All Reports'}
             </button>
             <button
               type="button"
               onClick={startNewForm}
-              className="rounded-lg bg-[#1d6fd8] px-4 py-2 text-sm font-bold text-white"
+              className="rounded-lg bg-[#1d6fd8] px-4 py-2.5 text-sm font-bold text-white sm:py-2"
             >
               + New Form
             </button>
           </div>
         </div>
-        <div className="overflow-hidden rounded-xl border bg-white">
+
+        <div className="w-full overflow-hidden rounded-xl border bg-white">
+          <div className="flex w-full flex-col gap-2 border-b border-slate-100 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
+            <div className="flex items-center gap-3">
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 md:hidden">
+                <input
+                  type="checkbox"
+                  checked={allPageSelected}
+                  onChange={toggleAllOnPage}
+                  aria-label="Select all on page"
+                  className="h-4 w-4"
+                  disabled={!pageItems.length}
+                />
+                Select page
+              </label>
+              <p className="text-sm text-slate-500">
+                {history
+                  ? `${history.total} report${history.total === 1 ? '' : 's'}`
+                  : '—'}
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="whitespace-nowrap">Rows per page</span>
+              <select
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium"
+                value={pageSize}
+                onChange={(e) => changePageSize(Number(e.target.value))}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           {historyLoading ? (
-            <div className="p-8"><LoadingSpinner /></div>
+            <div className="p-8">
+              <LoadingSpinner />
+            </div>
           ) : !history?.items.length ? (
             <p className="p-8 text-center text-sm text-slate-500">No records yet.</p>
           ) : (
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-[#0b2a5b] text-white">
-                <tr>
-                  <th className="px-4 py-3">ID</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Patient</th>
-                  <th className="px-4 py-3">Company</th>
-                  <th className="px-4 py-3">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.items.map((row) => (
-                  <tr key={row.id} className="border-t">
-                    <td className="px-4 py-3">{row.id}</td>
-                    <td className="px-4 py-3">{row.exam_date || '—'}</td>
-                    <td className="px-4 py-3 font-semibold">{row.patient_name}</td>
-                    <td className="px-4 py-3">{row.company_name || '—'}</td>
-                    <td className="px-4 py-3">
-                      <Link to={`/medical-tests/${row.id}`} className="font-semibold text-[#1d6fd8]">
-                        Open
+            <>
+              {/* Mobile cards */}
+              <div className="divide-y divide-slate-100 md:hidden">
+                {pageItems.map((row) => (
+                  <div key={row.id} className="space-y-3 p-3">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(row.id)}
+                        onChange={() => toggleOne(row.id)}
+                        aria-label={`Select report ${row.id}`}
+                        className="mt-1 h-4 w-4 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-base font-bold text-[#0b2a5b]">{row.patient_name}</p>
+                        <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600">
+                          <div>
+                            <dt className="font-semibold text-slate-400">Date</dt>
+                            <dd>{row.exam_date || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-semibold text-slate-400">Vehicle</dt>
+                            <dd className="truncate font-medium text-slate-800">{row.vehicle_number || '—'}</dd>
+                          </div>
+                          <div className="col-span-2">
+                            <dt className="font-semibold text-slate-400">Company</dt>
+                            <dd className="truncate">{row.company_name || '—'}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                      <Link
+                        to={`/medical-tests/${row.id}`}
+                        className={`${actionBtn} bg-slate-600 text-center`}
+                      >
+                        View
                       </Link>
-                    </td>
-                  </tr>
+                      <Link
+                        to={`/medical-tests/${row.id}`}
+                        className={`${actionBtn} bg-[#1d6fd8] text-center`}
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleRowPrint(row)}
+                        className={`${actionBtn} bg-violet-600`}
+                      >
+                        Print
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleRowDownload(row)}
+                        className={`${actionBtn} bg-orange-500`}
+                      >
+                        Download
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setDeleteId(row.id)}
+                        className={`${actionBtn} col-span-3 bg-red-600 sm:col-span-1`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              {/* Desktop table — fills full card width */}
+              <div className="medical-history-table-wrap hidden md:block">
+                <table className="medical-history-table text-left text-sm">
+                  <colgroup>
+                    <col className="mh-col-check" />
+                    <col className="mh-col-date" />
+                    <col className="mh-col-vehicle" />
+                    <col className="mh-col-patient" />
+                    <col className="mh-col-company" />
+                    <col className="mh-col-actions" />
+                  </colgroup>
+                  <thead className="bg-[#0b2a5b] text-white">
+                    <tr>
+                      <th className="px-3 py-3 font-medium">
+                        <input
+                          type="checkbox"
+                          checked={allPageSelected}
+                          onChange={toggleAllOnPage}
+                          aria-label="Select all on page"
+                          className="h-4 w-4 accent-white"
+                        />
+                      </th>
+                      <th className="px-3 py-3">Date</th>
+                      <th className="px-3 py-3">Vehicle Number</th>
+                      <th className="px-3 py-3">Patient</th>
+                      <th className="px-3 py-3">Company</th>
+                      <th className="px-3 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageItems.map((row) => (
+                      <tr key={row.id} className="border-t border-slate-100 align-middle">
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(row.id)}
+                            onChange={() => toggleOne(row.id)}
+                            aria-label={`Select report ${row.id}`}
+                            className="h-4 w-4"
+                          />
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">{row.exam_date || '—'}</td>
+                        <td className="truncate px-3 py-3 font-medium">{row.vehicle_number || '—'}</td>
+                        <td className="truncate px-3 py-3 font-semibold">{row.patient_name}</td>
+                        <td className="truncate px-3 py-3">{row.company_name || '—'}</td>
+                        <td className="px-3 py-3">
+                          <div className="mh-actions">
+                            <Link
+                              to={`/medical-tests/${row.id}`}
+                              className={`${actionBtn} bg-slate-600`}
+                            >
+                              View
+                            </Link>
+                            <Link
+                              to={`/medical-tests/${row.id}`}
+                              className={`${actionBtn} bg-[#1d6fd8]`}
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void handleRowPrint(row)}
+                              className={`${actionBtn} bg-violet-600`}
+                            >
+                              Print
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void handleRowDownload(row)}
+                              className={`${actionBtn} bg-orange-500`}
+                            >
+                              Download
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setDeleteId(row.id)}
+                              className={`${actionBtn} bg-red-600`}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                page={history.page}
+                pages={history.pages}
+                total={history.total}
+                pageSize={history.page_size}
+                className="w-full"
+                onChange={(p) => {
+                  setSelected(new Set())
+                  setHistoryPage(p)
+                }}
+              />
+            </>
           )}
         </div>
+
+        <ConfirmDialog
+          open={deleteId !== null}
+          title="Delete report?"
+          message="This will permanently delete this medical test report. This action cannot be undone."
+          confirmLabel="Delete Report"
+          loading={busy}
+          onCancel={() => setDeleteId(null)}
+          onConfirm={() => void handleDeleteOne()}
+        />
+
+        <ConfirmDialog
+          open={bulkDeleteOpen}
+          title="Delete Selected Reports?"
+          message={`You are about to permanently delete ${selected.size} medical test report${selected.size === 1 ? '' : 's'}. This action cannot be undone.`}
+          confirmLabel="Delete Reports"
+          loading={busy}
+          onCancel={() => setBulkDeleteOpen(false)}
+          onConfirm={() => void handleBulkDelete()}
+        />
       </div>
     )
   }
@@ -331,7 +691,7 @@ export default function MedicalTestFormPage() {
             onClick={() => void saveRecord()}
             className="rounded-lg bg-[#1d6fd8] px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save'}
           </button>
           <button
             type="button"

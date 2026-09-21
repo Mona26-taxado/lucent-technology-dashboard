@@ -80,7 +80,7 @@ export default function GlobeHospitalForm({ form, onChange }: Props) {
           </div>
 
           <div className="gh-header-mid">
-            <div className="gh-phones">Hospital : 0522-2410951, 9451384215, 7800349822</div>
+            <div className="gh-phones">Hospital : 0522-2410951, 9451384215, 9794912989</div>
             <img src="/medical/globe-title.png" alt="GLOBE HOSPITAL" className="gh-title-img" />
             <div className="gh-trust">Run by (Ayushmaan Health &amp; Educational Trust)</div>
             <div className="gh-addr">
@@ -117,8 +117,18 @@ export default function GlobeHospitalForm({ form, onChange }: Props) {
         </aside>
 
         <section className="gh-form">
-          <div className="gh-date-row">
-            <div className="gh-field gh-date">
+          <div className="medical-top-row">
+            <div className="vehicle-field">
+              <span className="gh-label">VEHICLE NUMBER:</span>
+              <span className="gh-rule">
+                <input
+                  className="gh-input"
+                  value={form.vehicle_number || ''}
+                  onChange={(e) => onChange('vehicle_number', e.target.value)}
+                />
+              </span>
+            </div>
+            <div className="date-field">
               <span className="gh-label">Date</span>
               <span className="gh-rule gh-rule-dotted">
                 <input
