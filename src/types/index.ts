@@ -190,3 +190,12 @@ export interface MedicalTestListResponse {
   page_size: number
   pages: number
 }
+
+export interface MedicalBulkDownloadJob {
+  job_id: string
+  status: 'queued' | 'processing' | 'completed' | 'failed' | string
+  processed: number
+  total: number
+  error?: string | null
+  download_url?: string | null
+}

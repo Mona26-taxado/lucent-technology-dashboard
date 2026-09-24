@@ -13,6 +13,7 @@ import type {
   MedicalTest,
   MedicalTestFormData,
   MedicalTestListResponse,
+  MedicalBulkDownloadJob,
 } from '../types'
 
 export const authApi = {
@@ -267,22 +268,26 @@ export const medicalTestsApi = {
     })
     return response
   },
-  bulkDownload: async () => {
-    const response = await api.get('/medical-tests/bulk-download', {
-      responseType: 'blob',
-      timeout: 600000,
-    })
-    return response
-  },
-  bulkDownloadSelected: async (ids: number[]) => {
-    const response = await api.post(
-      '/medical-tests/bulk-download',
-      { ids },
-      {
-        responseType: 'blob',
-        timeout: 600000,
-      },
+  createBulkDownloadJob: async (payload: { ids?: number[]; export_all?: boolean }) => {
+    const { data } = await api.post<MedicalBulkDownloadJob>(
+      '/medical-tests/bulk-download/jobs',
+      payload,
+      { timeout: 30000 },
     )
+    return data
+  },
+  getBulkDownloadJob: async (jobId: string) => {
+    const { data } = await api.get<MedicalBulkDownloadJob>(
+      `/medical-tests/bulk-download/jobs/${jobId}`,
+      { timeout: 15000 },
+    )
+    return data
+  },
+  downloadBulkDownloadJobFile: async (jobId: string) => {
+    const response = await api.get(`/medical-tests/bulk-download/jobs/${jobId}/file`, {
+      responseType: 'blob',
+      timeout: 120000,
+    })
     return response
   },
 }

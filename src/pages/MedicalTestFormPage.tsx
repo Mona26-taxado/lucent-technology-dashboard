@@ -9,6 +9,51 @@ import GlobeHospitalForm from '../components/medical/GlobeHospitalForm'
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 10
 
+function todayStamp() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function triggerZipDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function runBulkExportJob(
+  payload: { ids?: number[]; export_all?: boolean },
+  onProgress: (p: { done: number; total: number }) => void,
+): Promise<{ blob: Blob; total: number }> {
+  const created = await medicalTestsApi.createBulkDownloadJob(payload)
+  onProgress({ done: created.processed, total: created.total })
+  let job = created
+  while (job.status === 'queued' || job.status === 'processing') {
+    await sleep(800)
+    job = await medicalTestsApi.getBulkDownloadJob(job.job_id)
+    onProgress({ done: job.processed, total: job.total })
+  }
+  if (job.status === 'failed') {
+    throw new Error(job.error || 'Export failed')
+  }
+  if (job.status !== 'completed') {
+    throw new Error(`Unexpected export status: ${job.status}`)
+  }
+  const response = await medicalTestsApi.downloadBulkDownloadJobFile(job.job_id)
+  return {
+    blob: new Blob([response.data], { type: 'application/zip' }),
+    total: job.total,
+  }
+}
+
 function todayStr() {
   const d = new Date()
   return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`
@@ -92,6 +137,9 @@ export default function MedicalTestFormPage() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [bulkDownloading, setBulkDownloading] = useState(false)
   const [selectedDownloading, setSelectedDownloading] = useState(false)
+  const [exportProgress, setExportProgress] = useState<{ done: number; total: number } | null>(null)
+  const [exportFailed, setExportFailed] = useState<string | null>(null)
+  const [lastExportKind, setLastExportKind] = useState<'selected' | 'all' | null>(null)
   const [historyPage, setHistoryPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -244,33 +292,18 @@ export default function MedicalTestFormPage() {
       return
     }
     setBulkDownloading(true)
+    setExportFailed(null)
+    setLastExportKind('all')
+    setExportProgress({ done: 0, total: history.total })
     try {
-      const response = await medicalTestsApi.bulkDownload()
-      const blob = new Blob([response.data], { type: 'application/zip' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const d = new Date()
-      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      a.download = `medical-reports-${stamp}.zip`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      notify(`Downloaded ZIP (${history.total} reports)`, 'success')
+      const { blob, total } = await runBulkExportJob({ export_all: true }, setExportProgress)
+      triggerZipDownload(blob, `medical-reports-${todayStamp()}.zip`)
+      notify(`Downloaded ZIP (${total} reports)`, 'success')
+      setExportProgress(null)
     } catch (error) {
-      const err = error as { response?: { data?: Blob } }
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text()
-          const parsed = JSON.parse(text) as { detail?: string }
-          notify(parsed.detail || 'Bulk download failed', 'error')
-        } catch {
-          notify(getErrorMessage(error, 'Bulk download failed'), 'error')
-        }
-      } else {
-        notify(getErrorMessage(error, 'Bulk download failed'), 'error')
-      }
+      const message = getErrorMessage(error, 'Bulk download failed')
+      setExportFailed(message)
+      notify(message, 'error')
     } finally {
       setBulkDownloading(false)
     }
@@ -283,36 +316,26 @@ export default function MedicalTestFormPage() {
       return
     }
     setSelectedDownloading(true)
+    setExportFailed(null)
+    setLastExportKind('selected')
+    setExportProgress({ done: 0, total: ids.length })
     try {
-      const response = await medicalTestsApi.bulkDownloadSelected(ids)
-      const blob = new Blob([response.data], { type: 'application/zip' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const d = new Date()
-      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      a.download = `medical-test-reports-${stamp}.zip`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      notify(`Downloaded ZIP (${ids.length} selected report${ids.length === 1 ? '' : 's'})`, 'success')
+      const { blob, total } = await runBulkExportJob({ ids }, setExportProgress)
+      triggerZipDownload(blob, `medical-test-reports-${todayStamp()}.zip`)
+      notify(`Downloaded ZIP (${total} selected report${total === 1 ? '' : 's'})`, 'success')
+      setExportProgress(null)
     } catch (error) {
-      const err = error as { response?: { data?: Blob } }
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text()
-          const parsed = JSON.parse(text) as { detail?: string }
-          notify(parsed.detail || 'Download selected failed', 'error')
-        } catch {
-          notify(getErrorMessage(error, 'Download selected failed'), 'error')
-        }
-      } else {
-        notify(getErrorMessage(error, 'Download selected failed'), 'error')
-      }
+      const message = getErrorMessage(error, 'Download selected failed')
+      setExportFailed(message)
+      notify(message, 'error')
     } finally {
       setSelectedDownloading(false)
     }
+  }
+
+  const retryLastExport = () => {
+    if (lastExportKind === 'all') void downloadAllReports()
+    else if (lastExportKind === 'selected') void downloadSelectedReports()
   }
 
   const pageItems = history?.items ?? []
@@ -321,6 +344,10 @@ export default function MedicalTestFormPage() {
   const serialForRow = (rowIndex: number) => (currentPage - 1) * currentPageSize + rowIndex + 1
   const allPageSelected = pageItems.length > 0 && pageItems.every((r) => selected.has(r.id))
   const anyBulkBusy = busy || bulkDownloading || selectedDownloading
+  const preparingLabel =
+    exportProgress != null
+      ? `Preparing ${exportProgress.done}/${exportProgress.total}…`
+      : 'Preparing…'
 
   const toggleAllOnPage = () => {
     setSelected((prev) => {
@@ -443,7 +470,7 @@ export default function MedicalTestFormPage() {
                   className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:py-2"
                 >
                   {selectedDownloading
-                    ? 'Preparing Download…'
+                    ? preparingLabel
                     : `⬇ Download Selected (${selected.size})`}
                 </button>
                 <button
@@ -462,7 +489,7 @@ export default function MedicalTestFormPage() {
               disabled={anyBulkBusy || historyLoading || !history || history.total <= 0}
               className="rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:py-2"
             >
-              {bulkDownloading ? 'Preparing ZIP…' : '⬇ Download All Reports'}
+              {bulkDownloading ? preparingLabel : '⬇ Download All Reports'}
             </button>
             <button
               type="button"
@@ -473,6 +500,19 @@ export default function MedicalTestFormPage() {
             </button>
           </div>
         </div>
+
+        {exportFailed && !anyBulkBusy ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <span>{exportFailed}</span>
+            <button
+              type="button"
+              onClick={retryLastExport}
+              className="rounded-md bg-red-600 px-3 py-1 text-xs font-bold text-white"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
 
         <div className="w-full overflow-hidden rounded-xl border bg-white">
           <div className="flex w-full flex-col gap-2 border-b border-slate-100 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
@@ -708,7 +748,7 @@ export default function MedicalTestFormPage() {
         <ConfirmDialog
           open={deleteId !== null}
           title="Delete report?"
-          message="This will permanently delete this medical test report. This action cannot be undone."
+          message="Are you sure you want to permanently delete this medical test record? This action cannot be undone."
           confirmLabel="Delete Report"
           loading={busy}
           onCancel={() => setDeleteId(null)}
