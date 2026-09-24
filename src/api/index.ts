@@ -274,6 +274,17 @@ export const medicalTestsApi = {
     })
     return response
   },
+  bulkDownloadSelected: async (ids: number[]) => {
+    const response = await api.post(
+      '/medical-tests/bulk-download',
+      { ids },
+      {
+        responseType: 'blob',
+        timeout: 600000,
+      },
+    )
+    return response
+  },
 }
 
 export const healthApi = {

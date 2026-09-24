@@ -129,6 +129,9 @@ body {
 .medical-history-table .mh-col-check {
   width: 4%;
 }
+.medical-history-table .mh-col-sno {
+  width: 6%;
+}
 .medical-history-table .mh-col-date {
   width: 11%;
 }
@@ -139,10 +142,10 @@ body {
   width: 13%;
 }
 .medical-history-table .mh-col-company {
-  width: 17%;
+  width: 16%;
 }
 .medical-history-table .mh-col-actions {
-  width: 41%;
+  width: 36%;
 }
 
 .medical-history-table .mh-actions {

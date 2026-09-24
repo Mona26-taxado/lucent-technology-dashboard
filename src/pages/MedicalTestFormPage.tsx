@@ -91,6 +91,7 @@ export default function MedicalTestFormPage() {
   const [history, setHistory] = useState<MedicalTestListResponse | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [bulkDownloading, setBulkDownloading] = useState(false)
+  const [selectedDownloading, setSelectedDownloading] = useState(false)
   const [historyPage, setHistoryPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -275,8 +276,51 @@ export default function MedicalTestFormPage() {
     }
   }
 
+  const downloadSelectedReports = async () => {
+    const ids = Array.from(selected)
+    if (ids.length === 0) {
+      notify('Select at least one report to download', 'info')
+      return
+    }
+    setSelectedDownloading(true)
+    try {
+      const response = await medicalTestsApi.bulkDownloadSelected(ids)
+      const blob = new Blob([response.data], { type: 'application/zip' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const d = new Date()
+      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      a.download = `medical-test-reports-${stamp}.zip`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      notify(`Downloaded ZIP (${ids.length} selected report${ids.length === 1 ? '' : 's'})`, 'success')
+    } catch (error) {
+      const err = error as { response?: { data?: Blob } }
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          const parsed = JSON.parse(text) as { detail?: string }
+          notify(parsed.detail || 'Download selected failed', 'error')
+        } catch {
+          notify(getErrorMessage(error, 'Download selected failed'), 'error')
+        }
+      } else {
+        notify(getErrorMessage(error, 'Download selected failed'), 'error')
+      }
+    } finally {
+      setSelectedDownloading(false)
+    }
+  }
+
   const pageItems = history?.items ?? []
+  const currentPage = history?.page ?? historyPage
+  const currentPageSize = history?.page_size ?? pageSize
+  const serialForRow = (rowIndex: number) => (currentPage - 1) * currentPageSize + rowIndex + 1
   const allPageSelected = pageItems.length > 0 && pageItems.every((r) => selected.has(r.id))
+  const anyBulkBusy = busy || bulkDownloading || selectedDownloading
 
   const toggleAllOnPage = () => {
     setSelected((prev) => {
@@ -394,7 +438,17 @@ export default function MedicalTestFormPage() {
                 </span>
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={anyBulkBusy}
+                  onClick={() => void downloadSelectedReports()}
+                  className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:py-2"
+                >
+                  {selectedDownloading
+                    ? 'Preparing Download…'
+                    : `⬇ Download Selected (${selected.size})`}
+                </button>
+                <button
+                  type="button"
+                  disabled={anyBulkBusy}
                   onClick={() => setBulkDeleteOpen(true)}
                   className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:py-2"
                 >
@@ -405,7 +459,7 @@ export default function MedicalTestFormPage() {
             <button
               type="button"
               onClick={() => void downloadAllReports()}
-              disabled={bulkDownloading || historyLoading || !history || history.total <= 0}
+              disabled={anyBulkBusy || historyLoading || !history || history.total <= 0}
               className="rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 sm:py-2"
             >
               {bulkDownloading ? 'Preparing ZIP…' : '⬇ Download All Reports'}
@@ -466,7 +520,7 @@ export default function MedicalTestFormPage() {
             <>
               {/* Mobile cards */}
               <div className="divide-y divide-slate-100 md:hidden">
-                {pageItems.map((row) => (
+                {pageItems.map((row, rowIndex) => (
                   <div key={row.id} className="space-y-3 p-3">
                     <div className="flex items-start gap-3">
                       <input
@@ -477,7 +531,12 @@ export default function MedicalTestFormPage() {
                         className="mt-1 h-4 w-4 shrink-0"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-bold text-[#0b2a5b]">{row.patient_name}</p>
+                        <div className="flex items-baseline gap-2">
+                          <span className="shrink-0 text-xs font-bold text-slate-400">
+                            #{serialForRow(rowIndex)}
+                          </span>
+                          <p className="truncate text-base font-bold text-[#0b2a5b]">{row.patient_name}</p>
+                        </div>
                         <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600">
                           <div>
                             <dt className="font-semibold text-slate-400">Date</dt>
@@ -509,7 +568,7 @@ export default function MedicalTestFormPage() {
                       </Link>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={anyBulkBusy}
                         onClick={() => void handleRowPrint(row)}
                         className={`${actionBtn} bg-violet-600`}
                       >
@@ -517,7 +576,7 @@ export default function MedicalTestFormPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={anyBulkBusy}
                         onClick={() => void handleRowDownload(row)}
                         className={`${actionBtn} bg-orange-500`}
                       >
@@ -525,7 +584,7 @@ export default function MedicalTestFormPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={anyBulkBusy}
                         onClick={() => setDeleteId(row.id)}
                         className={`${actionBtn} col-span-3 bg-red-600 sm:col-span-1`}
                       >
@@ -541,6 +600,7 @@ export default function MedicalTestFormPage() {
                 <table className="medical-history-table text-left text-sm">
                   <colgroup>
                     <col className="mh-col-check" />
+                    <col className="mh-col-sno" />
                     <col className="mh-col-date" />
                     <col className="mh-col-vehicle" />
                     <col className="mh-col-patient" />
@@ -558,6 +618,7 @@ export default function MedicalTestFormPage() {
                           className="h-4 w-4 accent-white"
                         />
                       </th>
+                      <th className="px-2 py-3 text-center">S.No.</th>
                       <th className="px-3 py-3">Date</th>
                       <th className="px-3 py-3">Vehicle Number</th>
                       <th className="px-3 py-3">Patient</th>
@@ -566,7 +627,7 @@ export default function MedicalTestFormPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageItems.map((row) => (
+                    {pageItems.map((row, rowIndex) => (
                       <tr key={row.id} className="border-t border-slate-100 align-middle">
                         <td className="px-3 py-3">
                           <input
@@ -576,6 +637,9 @@ export default function MedicalTestFormPage() {
                             aria-label={`Select report ${row.id}`}
                             className="h-4 w-4"
                           />
+                        </td>
+                        <td className="px-2 py-3 text-center font-semibold text-slate-600">
+                          {serialForRow(rowIndex)}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">{row.exam_date || '—'}</td>
                         <td className="truncate px-3 py-3 font-medium">{row.vehicle_number || '—'}</td>
@@ -597,7 +661,7 @@ export default function MedicalTestFormPage() {
                             </Link>
                             <button
                               type="button"
-                              disabled={busy}
+                              disabled={anyBulkBusy}
                               onClick={() => void handleRowPrint(row)}
                               className={`${actionBtn} bg-violet-600`}
                             >
@@ -605,7 +669,7 @@ export default function MedicalTestFormPage() {
                             </button>
                             <button
                               type="button"
-                              disabled={busy}
+                              disabled={anyBulkBusy}
                               onClick={() => void handleRowDownload(row)}
                               className={`${actionBtn} bg-orange-500`}
                             >
@@ -613,7 +677,7 @@ export default function MedicalTestFormPage() {
                             </button>
                             <button
                               type="button"
-                              disabled={busy}
+                              disabled={anyBulkBusy}
                               onClick={() => setDeleteId(row.id)}
                               className={`${actionBtn} bg-red-600`}
                             >
